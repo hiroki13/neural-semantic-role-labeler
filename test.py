@@ -22,9 +22,10 @@ def main(argv):
     test_corpus = load_conll(argv.test_data)
     print '\tTest Sentences: %d' % len(test_corpus)
 
-    """ load initial embedding file """
+    """ load initial embedding dict """
     print '\n\tInitial Embedding Loading...'
-    init_emb, vocab_word = load_init_emb(init_emb=argv.init_emb)
+    init_emb = load_data(argv.emb_dict)
+    vocab_word = load_data(argv.vocab_dict)
     print '\tVocabulary Size: %d' % vocab_word.size()
 
     """ load arg dict """
@@ -74,7 +75,7 @@ def test(model, sample_x, sample_y,  test_arg_dict, mode):
 
         for b_index in xrange(len(batch_x)):
             sample_index += 1
-            if sample_index % 100 == 0:
+            if sample_index % 1000 == 0:
                 print '%d' % sample_index,
                 sys.stdout.flush()
 

@@ -5,12 +5,14 @@ from collections import defaultdict
 from copy import deepcopy
 import gzip
 import cPickle
+import re
 
 import numpy as np
 import theano
 
-PAD = u'<PAD>'
+PAD = u'PADDING'
 UNK = u'UNKNOWN'
+RE_NUM = re.compile(ur'[0-9]')
 
 
 class Vocab(object):
@@ -21,14 +23,12 @@ class Vocab(object):
         self.w2i = {}
 
     def add_word(self, word):
-#        assert isinstance(word, unicode)
         if word not in self.w2i:
             new_id = self.size()
             self.i2w.append(word)
             self.w2i[word] = new_id
 
     def get_id(self, word):
-#        assert isinstance(word, unicode)
         return self.w2i.get(word)
 
     def get_word(self, w_id):
@@ -64,6 +64,7 @@ def load_conll(path, exclude=False, file_encoding='utf-8'):
             es = line.rstrip().split()
             if len(es) > 1:
                 word = es[0].decode(file_encoding).lower()
+                word = RE_NUM.sub(u'0', word)
                 tag = es[1].decode(file_encoding)
                 syn = es[2].decode(file_encoding)
                 ne = es[3].decode(file_encoding)
@@ -181,14 +182,19 @@ def load_init_emb(init_emb):
         for line in f_words:
             line = line.strip().decode('utf-8').split()
             w = line[0]
+
             if w[1:-1] == UNK:
                 w = UNK
+            elif w[1:-1] == PAD:
+                w = PAD
+
             vocab.add_word(w)
-            w_id = vocab.get_id(w)
-            vec[w_id] = np.asarray(line[1:], dtype=theano.config.floatX)
+            vec[vocab.get_id(w)] = np.asarray(line[1:], dtype=theano.config.floatX)
 
     dim = len(line[1:])
-    vec[vocab.get_id(PAD)] = np.zeros(dim, dtype=theano.config.floatX)
+
+    if vec.get(PAD) is None:
+        vec[vocab.get_id(PAD)] = np.zeros(dim, dtype=theano.config.floatX)
 
     emb = [[] for i in xrange(vocab.size())]
     for k, v in vec.items():
