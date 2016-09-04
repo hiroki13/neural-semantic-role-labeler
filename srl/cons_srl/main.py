@@ -1,7 +1,5 @@
-__author__ = 'hiroki'
-
-import theano
 import numpy as np
+import theano
 
 theano.config.floatX = 'float32'
 np.random.seed(0)
@@ -9,8 +7,6 @@ np.random.seed(0)
 
 if __name__ == '__main__':
     import argparse
-    import train
-    import test
 
     parser = argparse.ArgumentParser(description='Train/Test SRL tagger.')
 
@@ -20,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_data',  help='path to test data')
 
     """ NN architecture """
-    parser.add_argument('--unit',  default='lstm', help='Unit')
+    parser.add_argument('--unit',  default='gru', help='Unit')
     parser.add_argument('--vocab',  type=int, default=100000000, help='vocabulary size')
     parser.add_argument('--emb',    type=int, default=50,        help='dimension of embeddings')
     parser.add_argument('--window', type=int, default=5,         help='window size for convolution')
@@ -31,10 +27,8 @@ if __name__ == '__main__':
     parser.add_argument('--save', type=bool, default=False, help='parameters to be saved or not')
     parser.add_argument('--init_emb', default=None, help='Initial embedding to be loaded')
     parser.add_argument('--opt', default='adam', help='optimization method')
-    parser.add_argument('--lr1', type=float, default=0.01, help='learning rate')
-    parser.add_argument('--lr2', type=float, default=0.01, help='learning rate')
     parser.add_argument('--reg', type=float, default=0.0001, help='L2 Reg rate')
-    parser.add_argument('--batch', type=int, default=8, help='batch size')
+    parser.add_argument('--batch', type=int, default=32, help='batch size')
     parser.add_argument('--epoch', type=int, default=500, help='number of epochs to train')
     parser.add_argument('--no-shuffle', action='store_true', default=False, help='don\'t shuffle training data')
 
@@ -46,9 +40,15 @@ if __name__ == '__main__':
 
     argv = parser.parse_args()
 
+    print
+    print argv
+    print
+
     if argv.mode == 'train':
+        import train
         train.main(argv)
     else:
+        import test
         assert argv.model is not None
         assert argv.arg_dict is not None
         assert argv.vocab_dict is not None

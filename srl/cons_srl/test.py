@@ -1,12 +1,9 @@
-__author__ = 'hiroki'
-
-
 import sys
 import time
 
 import theano
 
-from utils import load_conll, load_init_emb, get_id_samples, convert_data_test, output_results, load_data, count_correct, f_measure
+from srl.utils import load_conll, get_id_samples, convert_data_test, output_results, load_data, count_correct, f_measure
 
 
 def main(argv):
@@ -57,8 +54,8 @@ def main(argv):
 
     f, predicts = test(test_model, test_sample_x, test_sample_y, test_arg_dict, 'Test')
     output_results(test_corpus, te_prds, arg_dict, predicts,
-                   'Test-result.layer%d.batch%d.hidden%d.opt-%s.reg-%f.txt' % (
-                   argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg))
+                   'Test-result-%s.layer%d.batch%d.hidden%d.reg-%f.txt' % (
+                   argv.unit, argv.layer, argv.batch, argv.hidden, argv.reg))
 
 
 def test(model, sample_x, sample_y,  test_arg_dict, mode):

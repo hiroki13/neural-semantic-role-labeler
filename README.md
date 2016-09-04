@@ -1,2 +1,2 @@
 # neural-semantic-role-labeler
-## Semantic Role Labeling Tagger with Recurrent Neural Networks
+## Semantic Role Labeler with Recurrent Neural Networks

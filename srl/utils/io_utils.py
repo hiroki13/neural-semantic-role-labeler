@@ -1,70 +1,31 @@
-__author__ = 'hiroki'
-
-
+import sys
 from collections import defaultdict
 from copy import deepcopy
 import gzip
 import cPickle
-import re
 
 import numpy as np
 import theano
 
-PAD = u'PADDING'
-UNK = u'UNKNOWN'
-RE_NUM = re.compile(ur'[0-9]')
+from ..ling.vocab import Vocab, PAD, UNK
 
 
-class Vocab(object):
-    """Mapping between words and IDs."""
-
-    def __init__(self):
-        self.i2w = []
-        self.w2i = {}
-
-    def add_word(self, word):
-        if word not in self.w2i:
-            new_id = self.size()
-            self.i2w.append(word)
-            self.w2i[word] = new_id
-
-    def get_id(self, word):
-        return self.w2i.get(word)
-
-    def get_word(self, w_id):
-        return self.i2w[w_id]
-
-    def has_key(self, word):
-        return self.w2i.has_key(word)
-
-    def size(self):
-        return len(self.i2w)
-
-    def save(self, path):
-        with open(path, 'w') as f:
-            for i, w in enumerate(self.i2w):
-                print >> f, str(i) + '\t' + w.encode('utf-8')
-
-    @classmethod
-    def load(cls, path):
-        vocab = Vocab()
-        with open(path) as f:
-            for line in f:
-                w = line.strip().split('\t')[1].decode('utf-8')
-                vocab.add_word(w)
-        return vocab
+def say(s, stream=sys.stdout):
+    stream.write(s + '\n')
+    stream.flush()
 
 
 def load_conll(path, exclude=False, file_encoding='utf-8'):
-    corpus = []
+    if path is None:
+        return None
 
+    corpus = []
     with open(path) as f:
         sent = []
         for line in f:
             es = line.rstrip().split()
             if len(es) > 1:
                 word = es[0].decode(file_encoding).lower()
-                word = RE_NUM.sub(u'0', word)
                 tag = es[1].decode(file_encoding)
                 syn = es[2].decode(file_encoding)
                 ne = es[3].decode(file_encoding)
@@ -185,8 +146,6 @@ def load_init_emb(init_emb):
 
             if w[1:-1] == UNK:
                 w = UNK
-            elif w[1:-1] == PAD:
-                w = PAD
 
             vocab.add_word(w)
             vec[vocab.get_id(w)] = np.asarray(line[1:], dtype=theano.config.floatX)
@@ -213,116 +172,6 @@ def load_init_emb(init_emb):
     assert emb.shape[0] == vocab.size()
 
     return emb, vocab
-
-
-def convert_data(id_sents, prds, id_ctx, marks, args, emb):
-    sample_x = []
-    sample_y = []
-    batch_x = []
-    batch_y = []
-
-    pre_len = len(id_sents[0])
-    for s_i in xrange(len(id_sents)):
-        sent_w = [emb[w_id] for w_id in id_sents[s_i]]
-        sent_prds = prds[s_i]
-        sent_ctx = id_ctx[s_i]
-        sent_marks = marks[s_i]
-        sent_args = args[s_i]
-
-        """ create prd-per sample """
-        p_sample = []
-        for p_i, p_index in enumerate(sent_prds):
-            prd = sent_w[p_index]
-            ctx = []
-            for w_index in sent_ctx[p_i]:
-                ctx.extend(sent_w[w_index])
-
-            mark = sent_marks[p_i]
-
-            sent_sample = []
-            for w_index, w in enumerate(sent_w):
-                sample = []
-                sample.extend(w)
-                sample.extend(prd)
-                sample.extend(ctx)
-                sample.append(mark[w_index])
-                sent_sample.append(sample)
-            p_sample.append(sent_sample)
-
-        sent_len = len(sent_w)
-
-        if sent_len == pre_len:
-            batch_x.extend(p_sample)
-            batch_y.extend(sent_args)
-        else:
-            sample_x.append(np.asarray(batch_x, dtype=theano.config.floatX))
-            sample_y.append(np.asarray(batch_y, dtype='int32'))
-
-            batch_x = []
-            batch_x.extend(p_sample)
-            batch_y = []
-            batch_y.extend(sent_args)
-
-        pre_len = sent_len
-
-    if batch_x:
-        sample_x.append(np.asarray(batch_x, dtype=theano.config.floatX))
-        sample_y.append(np.asarray(batch_y, dtype='int32'))
-
-    return sample_x, sample_y
-
-
-def convert_data_test(id_sents, prds, id_ctx, marks, args, emb):
-    batch_x = []
-    batch_y = []
-
-    for s_i in xrange(len(id_sents)):
-        sent_w = [emb[w_id] for w_id in id_sents[s_i]]
-        sent_prds = prds[s_i]
-        sent_ctx = id_ctx[s_i]
-        sent_marks = marks[s_i]
-        sent_args = args[s_i]
-
-        for p_i, p_index in enumerate(sent_prds):
-            prd = sent_w[p_index]
-            ctx = []
-            for w_index in sent_ctx[p_i]:
-                ctx.extend(sent_w[w_index])
-
-            mark = sent_marks[p_i]
-            arg = sent_args[p_i]
-
-            sent_sample = []
-            for w_index, w in enumerate(sent_w):
-                sample = []
-                sample.extend(w)
-                sample.extend(prd)
-                sample.extend(ctx)
-                sample.append(mark[w_index])
-                sent_sample.append(sample)
-
-            batch_x.append(np.asarray([sent_sample], dtype=theano.config.floatX))
-            batch_y.append(np.asarray([arg], dtype='int32'))
-
-    return batch_x, batch_y
-
-
-def shuffle(sample_x, sample_y):
-    new_x = []
-    new_y = []
-
-    indices = [i for i in xrange(len(sample_x))]
-    np.random.shuffle(indices)
-
-    for i in indices:
-        batch_x = sample_x[i]
-        batch_y = sample_y[i]
-        b_indices = [j for j in xrange(len(batch_x))]
-        np.random.shuffle(b_indices)
-        new_x.append([batch_x[j] for j in b_indices])
-        new_y.append([batch_y[j] for j in b_indices])
-
-    return new_x, new_y
 
 
 def set_args(corpus):
@@ -584,7 +433,6 @@ def output_results(corpus, prd_indices, arg_dict, predicts, path):
                 args.append('*')  # without span
         return args
 
-
     k = 0
     f = open(path, 'w')
 
@@ -760,88 +608,5 @@ def output_results_iob(corpus, prd_indices, arg_dict, predicts, path):
             text = "\t".join(c)
             print >> f, text
         print >> f
-
-
-def count_spans(spans):
-    total = 0
-    for span in spans:
-        if not span[0].startswith('C'):
-            total += 1
-    return total
-
-
-def f_measure(predicts, answers, arg_dict):
-    def get_spans(sent):
-        spans = []
-        span = []
-        for w_i, a_id in enumerate(sent):
-            label = arg_dict.get_word(a_id)
-            if label.startswith('B-'):
-                if span and span[0][0] != 'V':
-                    spans.append(span)
-                span = [label[2:], w_i, w_i]
-            elif label.startswith('I-'):
-                if span:
-                    if label[2:] == span[0]:
-                        span[2] = w_i
-                    else:
-                        if span[0][0] != 'V':
-                            spans.append(span)
-                        span = [label[2:], w_i, w_i]
-                else:
-                    span = [label[2:], w_i, w_i]
-            else:
-                if span and span[0][0] != 'V':
-                    spans.append(span)
-                span = []
-        if span:
-            spans.append(span)
-        return spans
-
-    p_total = 0.
-    r_total = 0.
-    correct = 0.
-    for i in xrange(len(predicts)):
-        ys = predicts[i]
-        ds = answers[i][0]
-        y_spans = get_spans(ys)
-        d_spans = get_spans(ds)
-        p_total += count_spans(y_spans)
-        r_total += count_spans(d_spans)
-
-        for y_span in y_spans:
-            if y_span[0].startswith('C'):
-                continue
-            if y_span in d_spans:
-                correct += 1.
-
-    if p_total > 0:
-        p = correct / p_total
-    else:
-        p = 0.
-    if r_total > 0:
-        r = correct / r_total
-    else:
-        r = 0.
-    if p + r > 0:
-        f = (2 * p * r) / (p + r)
-    else:
-        f = 0.
-
-    print '\tProps: %d\tP total: %f\tR total: %f\tCorrect: %f' % (len(predicts), p_total, r_total, correct)
-    print '\tPrecision: %f\tRecall: %f\tF1: %f' % (p, r, f)
-
-    return f
-
-
-def count_correct(errors):
-    total = 0.0
-    correct = 0
-    for sent in errors:
-        total += len(sent)
-        for y_pred in sent:
-            if y_pred == 0:
-                correct += 1
-    return total, correct
 
 
