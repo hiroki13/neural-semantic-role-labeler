@@ -242,33 +242,6 @@ def print_args(data, file_encoding='utf-8'):
         print
 
 
-def convert_words_into_ids(corpus, prd_indices, vocab_word):
-    id_corpus_w = []
-    id_prds = []
-    id_p_ctx = []
-    marks = []
-    for i, sent in enumerate(corpus):
-        w_ids = []
-        for w in sent:  # w = (form, tag, syn, ne, prd)
-            w_id = vocab_word.get_id(w[0])
-            if w_id is None:
-                """ID for unknown word"""
-                w_id = vocab_word.get_id(UNK)
-            assert w_id is not None
-            w_ids.append(w_id)
-        p_ids = []
-        p_ctx = []
-        for index in prd_indices[i]:
-            p_ids.append(w_ids[index])
-            ctx, mark = get_context(w_ids, index)
-            p_ctx.append(ctx)
-            marks.append(np.asarray(mark, dtype=theano.config.floatX))
-        id_corpus_w.append(w_ids)
-        id_prds.append(p_ids)
-        id_p_ctx.append(p_ctx)
-    return id_corpus_w, id_prds, id_p_ctx, marks
-
-
 def dump_data(data, fn):
     with gzip.open(fn + '.pkl.gz', 'wb') as gf:
         cPickle.dump(data, gf, cPickle.HIGHEST_PROTOCOL)

@@ -61,7 +61,7 @@ class Model(object):
                 self.layers.append(layer(n_i=n_h * 2, n_h=n_h))
 
         self.layers.append(CRF(n_i=n_h * 2, n_h=n_y))
-        say('Layer: %d' % len(self.layers))
+        say('Hidden Layer: %d' % (len(self.layers) - 1))
 
     def set_params(self):
         for l in self.layers:
