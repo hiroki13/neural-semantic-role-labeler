@@ -162,6 +162,7 @@ def load_init_emb(init_emb):
     if vec.get(UNK) is None:
         """ averaging """
         avg = np.zeros(dim, dtype=theano.config.floatX)
+        emb[vocab.get_id(UNK)] = avg
         for i in xrange(len(emb)):
             avg += emb[i]
         avg_vec = avg / len(emb)
