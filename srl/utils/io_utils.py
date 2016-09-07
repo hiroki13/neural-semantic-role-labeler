@@ -48,91 +48,6 @@ def load_conll(path, exclude=False, file_encoding='utf-8'):
     return corpus
 
 
-def get_id_samples(corpus, vocab_word, a_dict=None, sort=False):
-    def get_w_ids_p_indices(_sent):
-        ids = []
-        p_indices = []
-        for w_index, w in enumerate(_sent):  # w = (form, tag, syn, ne, prd)
-            w_id = vocab_word.get_id(w[0])
-            if w_id is None:
-                """ID for unknown word"""
-                w_id = vocab_word.get_id(UNK)
-            assert w_id is not None
-            ids.append(w_id)
-
-            if w[4] != '-':
-                p_indices.append(w_index)
-
-        return ids, p_indices
-
-    def get_args(prd_i, _sent):
-        sent_args = []
-        prev = None
-        for w in _sent:
-            arg = w[5][prd_i]
-            if arg.startswith('('):
-                if arg.endswith(')'):
-                    prev = arg[1:-2]
-                    arg_label = 'B-' + prev
-                    arg_dict.add_word(arg_label)
-                    sent_args.append(arg_dict.get_id(arg_label))
-                    prev = None
-                else:
-                    prev = arg[1:-1]
-                    arg_label = 'B-' + prev
-                    arg_dict.add_word(arg_label)
-                    sent_args.append(arg_dict.get_id(arg_label))
-            else:
-                if prev:
-                    arg_label = 'I-' + prev
-                    arg_dict.add_word(arg_label)
-                    sent_args.append(arg_dict.get_id(arg_label))
-                    if arg.endswith(')'):
-                        prev = None
-                else:
-                    arg_label = 'O'
-                    arg_dict.add_word(arg_label)
-                    sent_args.append(arg_dict.get_id(arg_label))
-        return sent_args
-
-    if sort:
-        corpus = sorted(corpus, key=lambda sent: len(sent))
-
-    if a_dict:
-        arg_dict = deepcopy(a_dict)
-    else:
-        arg_dict = Vocab()
-
-    id_sents = []
-    id_ctx = []
-    marks = []
-    index_prds = []
-    args = []
-    for i, sent in enumerate(corpus):
-        w_ids, prd_indices = get_w_ids_p_indices(sent)
-        w_indices = [index for index in xrange(len(sent))]
-        id_sents.append(w_ids)
-        index_prds.append(prd_indices)
-
-        assert len(prd_indices) == len(sent[0][5])
-
-        sent_ctx = []
-        sent_marks = []
-        sent_args = []
-        for p_i, p_index in enumerate(prd_indices):
-            ctx, mark = get_context(w_indices, p_index)
-            sent_ctx.append(ctx)
-            sent_marks.append(mark)
-            sent_args.append(get_args(p_i, sent))
-        id_ctx.append(sent_ctx)
-        marks.append(sent_marks)
-        args.append(sent_args)
-
-    assert len(id_sents) == len(args), 'Sample x: %d\tSample y: %d' % (len(id_sents), len(args))
-
-    return id_sents, id_ctx, marks, index_prds, args, arg_dict
-
-
 def load_init_emb(init_emb):
     vocab = Vocab()
     vocab.add_word(PAD)
@@ -351,27 +266,6 @@ def convert_words_into_ids(corpus, prd_indices, vocab_word):
         id_prds.append(p_ids)
         id_p_ctx.append(p_ctx)
     return id_corpus_w, id_prds, id_p_ctx, marks
-
-
-def get_context(sent, p_index, window=5):
-    mark = []
-    slide = window / 2
-
-    """make mark"""
-    prev = p_index - slide
-    pro = p_index + slide
-    for i, w in enumerate(sent):
-        if prev <= i <= pro:
-            mark.append(1.0)
-        else:
-            mark.append(0.0)
-
-    """make p_ctx"""
-    p_index += slide
-    pad = [0 for i in xrange(slide)]
-    padded_sent = pad + sent + pad
-
-    return padded_sent[p_index - slide: p_index + slide + 1], mark
 
 
 def dump_data(data, fn):

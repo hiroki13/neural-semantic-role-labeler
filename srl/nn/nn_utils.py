@@ -15,6 +15,13 @@ def tanh(x):
     return T.tanh(x)
 
 
+def normalize_3d(x, eps=1e-8):
+    # x is len*batch*d
+    # l2 is len*batch*1
+    l2 = x.norm(2, axis=2).dimshuffle((0, 1, 'x'))
+    return x / (l2 + eps)
+
+
 def build_shared_zeros(shape):
     return theano.shared(
         value=np.zeros(shape, dtype=theano.config.floatX),

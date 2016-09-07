@@ -27,6 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('--save', type=bool, default=False, help='parameters to be saved or not')
     parser.add_argument('--init_emb', default=None, help='Initial embedding to be loaded')
     parser.add_argument('--opt', default='adam', help='optimization method')
+    parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
     parser.add_argument('--reg', type=float, default=0.0001, help='L2 Reg rate')
     parser.add_argument('--batch', type=int, default=32, help='batch size')
     parser.add_argument('--epoch', type=int, default=500, help='number of epochs to train')

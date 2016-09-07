@@ -1,5 +1,7 @@
-from ..utils.io_utils import say, load_conll, load_init_emb, get_id_samples, dump_data, output_results
-from ..utils.preprocess import convert_data, convert_data_test, shuffle
+import numpy as np
+
+from ..utils.io_utils import say, load_conll, load_init_emb, dump_data, output_results
+from ..utils.preprocess import get_id_corpus, get_phi, get_samples, get_batches, convert_data_test, shuffle
 from model_api import ModelAPI
 
 
@@ -11,7 +13,7 @@ def main(argv):
     say('\tTRAINING\t\tBatch: %d  Epoch: %d  Parameters Save: %s' % (argv.batch, argv.epoch, argv.save))
     say('\tINITIAL EMBEDDING\t %s' % argv.init_emb)
     say('\tNETWORK STRUCTURE\tEmb Dim: %d  Hidden Dim: %d  Layers: %d' % (argv.emb, argv.hidden, argv.layer))
-    say('\tOPTIMIZATION\t\tMethod: %s  Learning Rate: %f %f  L2 Reg: %f' % (argv.opt, argv.lr1, argv.lr2, argv.reg))
+    say('\tOPTIMIZATION\t\tMethod: %s  Learning Rate: %f  L2 Reg: %f' % (argv.opt, argv.lr, argv.reg))
 
     ###############
     # Load corpus #
@@ -32,46 +34,43 @@ def main(argv):
     init_emb, vocab_word = load_init_emb(init_emb=argv.init_emb)
     say('\tVocabulary Size: %d' % vocab_word.size())
 
-    ##########################
-    # Convert words into ids #
-    ##########################
-    say('\n\tConverting Words into IDs...')
-
-    tr_id_sents, tr_id_ctx, tr_marks, tr_prds, train_y, arg_dict = get_id_samples(train_corpus, vocab_word=vocab_word,
-                                                                                  sort=True)
+    ##################
+    # Create samples #
+    ##################
+    # samples: 1D: n_samples, 2D: (x, y)
+    say('\n\tCreating Training/Dev/Test Samples...')
+    tr_phi, label_dict = get_phi(train_corpus, vocab_word)
+    train_samples = get_samples(tr_phi, init_emb)
+    say('\tTrain Samples: %d' % len(train_samples))
 
     if argv.dev_data:
-        dev_id_sents, dev_id_ctx, dev_marks, dev_prds, dev_y, dev_arg_dict =\
-            get_id_samples(dev_corpus, vocab_word=vocab_word, a_dict=arg_dict)
+        dev_phi, dev_label_dict = get_phi(dev_corpus, vocab_word, label_dict)
+        dev_samples = get_samples(dev_phi, init_emb)
+        say('\tDev Samples: %d' % len(dev_samples))
     if argv.test_data:
-        te_id_sents, te_id_ctx, te_marks, te_prds, test_y, test_arg_dict =\
-            get_id_samples(test_corpus, vocab_word=vocab_word, a_dict=arg_dict)
+        test_phi, test_label_dict = get_phi(test_corpus, vocab_word, label_dict)
+        test_samples = get_samples(test_phi, init_emb)
+        say('\tTest Samples: %d' % len(test_samples))
 
-    print '\tLabel size: %d' % arg_dict.size()
+    say('\tLabel size: %d' % label_dict.size())
 
-    """ dump arg/vocab dicts """
-    dump_data(data=arg_dict, fn='arg_dict-%d' % (arg_dict.size()))
+    ##################
+    # Create batches #
+    ##################
+    train_samples = get_batches(train_samples, argv.batch)
+    say('\tTrain Batches: %d' % len(train_samples))
+
+    ########################
+    # dump arg/vocab dicts #
+    ########################
+    dump_data(data=label_dict, fn='arg_dict-%d' % (label_dict.size()))
     dump_data(data=vocab_word, fn='vocab_dict-%d' % (vocab_word.size()))
     dump_data(data=init_emb, fn='emb_dict-%d' % (len(init_emb)))
-
-    """ convert formats for theano """
-    print '\n\tCreating Training/Dev/Test Samples...'
-
-    train_sample_x, train_sample_y = convert_data(tr_id_sents, tr_prds, tr_id_ctx, tr_marks, train_y, init_emb)
-    print '\tTrain Samples: %d' % len(train_sample_x)
-
-    if argv.dev_data:
-        dev_sample_x, dev_sample_y = convert_data_test(dev_id_sents, dev_prds, dev_id_ctx, dev_marks, dev_y, init_emb)
-        print '\tDev Samples: %d' % len(dev_sample_x)
-
-    if argv.test_data:
-        test_sample_x, test_sample_y = convert_data_test(te_id_sents, te_prds, te_id_ctx, te_marks, test_y, init_emb)
-        print '\tTest Samples: %d' % len(test_sample_x)
 
     #############
     # Model API #
     #############
-    model_api = ModelAPI(argv, init_emb, vocab_word, arg_dict)
+    model_api = ModelAPI(argv, init_emb, vocab_word, label_dict)
     model_api.set_model()
     model_api.set_train_f()
     model_api.set_test_f()
@@ -79,7 +78,7 @@ def main(argv):
     ############
     # Training #
     ############
-    print '\nTRAIN START'
+    say('\nTRAIN START')
 
     best_dev_f = 0.0
     best_test_f = 0.0
@@ -90,15 +89,14 @@ def main(argv):
         ############
         # Training #
         ############
-        print '\nEpoch: %d' % (epoch + 1)
-        train_sample_x, train_sample_y = shuffle(train_sample_x, train_sample_y)
-        model_api.train_all(train_sample_x, train_sample_y)
+        say('\nEpoch: %d' % (epoch + 1))
+        model_api.train_all(train_samples)
 
         ###############
         # Development #
         ###############
         if argv.dev_data:
-            dev_f, predicts = model_api.predict_all(dev_sample_x, dev_sample_y, dev_arg_dict, 'Dev')
+            dev_f, predicts = model_api.predict_all(dev_samples, dev_label_dict, 'Dev')
             if best_dev_f < dev_f:
                 best_dev_f = dev_f
                 best_epoch = epoch
@@ -110,22 +108,22 @@ def main(argv):
                     dump_data(data=model_api.model, fn=fn)
 
                 """ Output Results """
-                output_results(dev_corpus, dev_prds, arg_dict, predicts,
-                               'Dev-result-%s.layer%d.batch%d.hidden%d.opt-%s.reg-%f.txt' % (
-                               argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg))
+#                output_results(dev_corpus, dev_prds, label_dict, predicts,
+#                               'Dev-result-%s.layer%d.batch%d.hidden%d.opt-%s.reg-%f.txt' % (
+#                               argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg))
                 flag = True
-            print '\t### Best Dev F Score: %f  Epoch: %d ###' % (best_dev_f, best_epoch+1)
+            say('\t### Best Dev F Score: %f  Epoch: %d ###' % (best_dev_f, best_epoch+1))
 
         ########
         # Test #
         ########
         if argv.test_data:
-            test_f, predicts = model_api.predict_all(test_sample_x, test_sample_y, test_arg_dict, 'Test')
+            test_f, predicts = model_api.predict_all(test_samples, test_label_dict, 'Test')
             if flag:
                 best_test_f = test_f
                 flag = False
-                output_results(test_corpus, te_prds, arg_dict, predicts,
-                               'Test-result-%s.layer%d.batch%d.hidden%d.opt-%s.reg-%f.txt' % (
-                               argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg))
+#                output_results(test_corpus, te_prds, label_dict, predicts,
+#                               'Test-result-%s.layer%d.batch%d.hidden%d.opt-%s.reg-%f.txt' % (
+#                               argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg))
             if argv.test_data:
-                print '\t### Best Test F Score: %f  Epoch: %d ###' % (best_test_f, best_epoch+1)
+                say('\t### Best Test F Score: %f  Epoch: %d ###' % (best_test_f, best_epoch+1))

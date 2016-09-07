@@ -1,5 +1,6 @@
 import sys
 import time
+import math
 
 import numpy as np
 import theano
@@ -41,8 +42,6 @@ class ModelAPI(object):
         #################
         say('\n\nMODEL:  Unit: %s  Opt: %s' % (argv.unit, argv.opt))
         self.model = Model(unit=argv.unit, x=x, y=d, depth=argv.layer, n_in=n_in, n_h=n_h, n_y=n_y, reg=reg)
-#        self.model = model(argv, max_n_agents, n_vocab, init_emb)
-#        self.model.compile(c=c, r=r, a=a, y_r=y_r, y_a=y_a, n_agents=n_agents)
 
     def set_train_f(self):
         model = self.model
@@ -65,9 +64,9 @@ class ModelAPI(object):
         nll, g_norm, pred_a, pred_r = self.train_f(c, r, a, res_vec, adr_vec, n_agents)
         return nll, g_norm, pred_a, pred_r
 
-    def train_all(self, train_sample_x, train_sample_y):
-        argv = self.argv
-        batch = argv.batch
+    def train_all(self, train_samples):
+        batch_indices = range(len(train_samples))
+        np.random.shuffle(batch_indices)
 
         print '\tIndex: ',
         start = time.time()
@@ -75,64 +74,53 @@ class ModelAPI(object):
         losses = []
         errors = []
 
-        sample_index = 0
-        for index in xrange(len(train_sample_x)):
-            batch_x = train_sample_x[index]
-            batch_y = train_sample_y[index]
+        for index, b_index in enumerate(batch_indices):
+            if (index + 1) % 100 == 0:
+                print '%d' % (index + 1),
+                sys.stdout.flush()
 
-            for b_index in xrange(len(batch_x) / batch + 1):
-                sample_index += 1
-                if sample_index % 100 == 0:
-                    print '%d' % sample_index,
-                    sys.stdout.flush()
+            batch_x, batch_y = train_samples[b_index]
+            loss, error = self.train_f(batch_x, batch_y)
 
-                sample_x = batch_x[b_index * batch: (b_index + 1) * batch]
-                sample_y = batch_y[b_index * batch: (b_index + 1) * batch]
+            if math.isnan(loss):
+                say('\n\nNAN: Index: %d\n' % (index + 1))
+                exit()
 
-                if len(sample_x) == 0:
-                    continue
-
-                loss, error = self.train_f(sample_x, sample_y)
-
-                losses.append(loss)
-                errors.extend(error)
+            losses.append(loss)
+            errors.extend(error)
 
         end = time.time()
         avg_loss = np.mean(losses)
         total, correct = count_correct(errors)
 
-        print '\tTime: %f seconds' % (end - start)
-        print '\tAverage Negative Log Likelihood: %f' % avg_loss
-        print '\tTrain Accuracy: %f' % (correct / total)
+        say('\tTime: %f seconds' % (end - start))
+        say('\tAverage Negative Log Likelihood: %f' % avg_loss)
+        say('\tTrain Accuracy: %f' % (correct / total))
 
-    def predict_all(self, sample_x, sample_y,  test_arg_dict, mode):
+    def predict_all(self, samples, arg_dict, mode):
         print '\tIndex: ',
         start = time.time()
 
         predicts = []
         errors = []
+        y = []
 
-        sample_index = 0
-        for index in xrange(len(sample_x)):
-            batch_x = sample_x[index]
-            batch_y = sample_y[index]
+        for index, (sample_x, sample_y) in enumerate(samples):
+            if (index + 1) % 1000 == 0:
+                print '%d' % (index + 1),
+                sys.stdout.flush()
 
-            for b_index in xrange(len(batch_x)):
-                sample_index += 1
-                if sample_index % 1000 == 0:
-                    print '%d' % sample_index,
-                    sys.stdout.flush()
-
-                pred, error = self.pred_f([batch_x[b_index]], [batch_y[b_index]])
-                predicts.append(pred[0])
-                errors.append(error[0])
+            pred, error = self.pred_f([sample_x], [sample_y])
+            predicts.append(pred[0])
+            errors.append(error[0])
+            y.append([sample_y])
 
         end = time.time()
         total, correct = count_correct(errors)
-        print '\tTime: %f seconds' % (end - start)
-        print '\t%s Accuracy: %f' % (mode, correct / total)
+        say('\tTime: %f seconds' % (end - start))
+        say('\t%s Accuracy: %f' % (mode, correct / total))
 
-        return f_measure(predicts, sample_y, test_arg_dict), predicts
+        return f_measure(predicts, y, arg_dict), predicts
 
     def get_pnorm_stat(self):
         lst_norms = []
