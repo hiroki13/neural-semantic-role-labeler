@@ -2,6 +2,9 @@ import re
 
 PAD = u'<PAD>'
 UNK = u'UNKNOWN'
+UNDER_BAR = u'_'
+SLASH = u'-'
+VERB = u'V'
 RE_NUM = re.compile(ur'[0-9]')
 
 

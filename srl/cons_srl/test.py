@@ -1,89 +1,108 @@
-import sys
-import time
+from ..utils.io_utils import say
+from ..utils.loader import load_conll, load_pos_tagged_corpus, load_data
+from ..utils.saver import save_predicted_prop, save_predicted_srl
+from ..utils.preprocess import get_x, get_y, concat_x_y, get_samples, get_sample_x
+from model_api import ModelAPI
 
-import theano
 
-from srl.utils import load_conll, get_id_samples, convert_data_test, output_results, load_data, count_correct, f_measure
+def predict_pos_tagged_corpus(argv):
+    ###############
+    # Load corpus #
+    ###############
+    say('\n\tCorpus Preprocessing...')
+    test_corpus = load_pos_tagged_corpus(argv.test_data, data_size=argv.data_size)
+    say('\tTest  Sentences: %d' % (len(test_corpus) if test_corpus else 0))
+
+    ##########################
+    # Load initial embedding #
+    ##########################
+    say('\n\tInitial Embedding Loading...')
+    init_emb = load_data(argv.load_emb)
+    vocab_word = load_data(argv.load_word)
+    vocab_label = load_data(argv.load_label)
+    say('\tVocabulary Size: %d' % vocab_word.size())
+    say('\tLabel size: %d' % vocab_label.size())
+
+    ##################
+    # Create samples #
+    ##################
+    # samples: 1D: n_samples, 2D: (x, y)
+    x = get_x(test_corpus, vocab_word)
+    test_samples = get_sample_x(x, init_emb)
+    say('\tTest Samples: %d' % len(test_samples))
+
+    #############
+    # Model API #
+    #############
+    say('\nModel Loading...')
+    model_api = ModelAPI(argv, init_emb, vocab_word, vocab_label)
+    model_api.model = load_data(argv.load_model)
+    model_api.set_pred_f()
+
+    ########
+    # Test #
+    ########
+    predicts = model_api.predict_all2(test_samples)
+    fn = 'result-srl.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
+         (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
+    save_predicted_srl(test_corpus, vocab_label, predicts, fn)
+
+
+def predict_conll_corpus(argv):
+    ###############
+    # Load corpus #
+    ###############
+    say('\n\tCorpus Preprocessing...')
+    test_corpus = load_conll(argv.test_data, data_size=argv.data_size)
+    say('\tTest  Sentences: %d' % (len(test_corpus) if test_corpus else 0))
+
+    ##########################
+    # Load initial embedding #
+    ##########################
+    say('\n\tInitial Embedding Loading...')
+    init_emb = load_data(argv.load_emb)
+    vocab_word = load_data(argv.load_word)
+    vocab_label = load_data(argv.load_label)
+    say('\tVocabulary Size: %d' % vocab_word.size())
+    say('\tLabel size: %d' % vocab_label.size())
+
+    ##################
+    # Create samples #
+    ##################
+    # samples: 1D: n_samples, 2D: (x, y)
+    x = get_x(test_corpus, vocab_word)
+    y, vocab_label_test = get_y(test_corpus, vocab_label)
+    xy = concat_x_y(x, y)
+    test_samples = get_samples(xy, init_emb)
+    say('\tTest Samples: %d' % len(test_samples))
+
+    #############
+    # Model API #
+    #############
+    say('\nModel Loading...')
+    model_api = ModelAPI(argv, init_emb, vocab_word, vocab_label)
+    model_api.model = load_data(argv.load_model)
+    model_api.set_test_f()
+
+    ########
+    # Test #
+    ########
+    test_f, predicts = model_api.predict_all(test_samples, vocab_label_test)
+    fn = 'result-test.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
+         (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
+    save_predicted_prop(test_corpus, vocab_label_test, predicts, fn)
 
 
 def main(argv):
-    print '\nSYSTEM START'
-    print '\nMODE: Test'
-    print '\nRECURRENT HIDDEN UNIT: %s\n' % argv.unit
+    say('\nSYSTEM START')
+    say('\nMODE: Test')
+    say('\nRECURRENT HIDDEN UNIT: %s\n' % argv.unit)
 
-    print '\tINITIAL EMBEDDING\t %s' % argv.init_emb
-    print '\tNETWORK STRUCTURE\tEmb Dim: %d  Hidden Dim: %d  Layers: %d' % (argv.emb, argv.hidden, argv.layer)
+    say('\tINITIAL EMBEDDING\t %s' % argv.init_emb)
+    say('\tNETWORK STRUCTURE\tEmb Dim: %d  Hidden Dim: %d  Layers: %d' % (argv.emb, argv.hidden, argv.layer))
 
-    """ load corpus"""
-    print '\n\tCorpus Preprocessing...'
-    test_corpus = load_conll(argv.test_data)
-    print '\tTest Sentences: %d' % len(test_corpus)
-
-    """ load initial embedding dict """
-    print '\n\tInitial Embedding Loading...'
-    init_emb = load_data(argv.emb_dict)
-    vocab_word = load_data(argv.vocab_dict)
-    print '\tVocabulary Size: %d' % vocab_word.size()
-
-    """ load arg dict """
-    print '\n\tInitial Embedding Loading...'
-    arg_dict = load_data(argv.arg_dict)
-    print '\tLabel size: %d' % arg_dict.size()
-
-    """ convert words into ids """
-    print '\n\tConverting Words into IDs...'
-    te_id_sents, te_id_ctx, te_marks, te_prds, test_y, test_arg_dict = get_id_samples(test_corpus,
-                                                                                      vocab_word=vocab_word,
-                                                                                      a_dict=arg_dict)
-
-    """ convert formats for theano """
-    print '\n\tCreating Test Samples...'
-    test_sample_x, test_sample_y = convert_data_test(te_id_sents, te_prds, te_id_ctx, te_marks, test_y, init_emb)
-
-    """ load tagger"""
-    print '\nModel Loading...'
-    tagger = load_data(argv.model)
-
-    print '\nTheano Code Compiling...'
-
-    test_model = theano.function(
-        inputs=[tagger.x, tagger.d],
-        outputs=[tagger.y_pred, tagger.errors],
-        mode='FAST_RUN',
-    )
-
-    f, predicts = test(test_model, test_sample_x, test_sample_y, test_arg_dict, 'Test')
-    output_results(test_corpus, te_prds, arg_dict, predicts,
-                   'Test-result-%s.layer%d.batch%d.hidden%d.reg-%f.txt' % (
-                   argv.unit, argv.layer, argv.batch, argv.hidden, argv.reg))
-
-
-def test(model, sample_x, sample_y,  test_arg_dict, mode):
-    print '\n\t%s Index: ' % mode,
-    start = time.time()
-
-    predicts = []
-    errors = []
-
-    sample_index = 0
-    for index in xrange(len(sample_x)):
-        batch_x = sample_x[index]
-        batch_y = sample_y[index]
-
-        for b_index in xrange(len(batch_x)):
-            sample_index += 1
-            if sample_index % 1000 == 0:
-                print '%d' % sample_index,
-                sys.stdout.flush()
-
-            pred, error = model([batch_x[b_index]], [batch_y[b_index]])
-            predicts.append(pred[0])
-            errors.append(error[0])
-
-    end = time.time()
-    total, correct = count_correct(errors)
-    print '\tTime: %f seconds' % (end - start)
-    print '\t%s Accuracy: %f' % (mode, correct / total)
-
-    return f_measure(predicts, sample_y, test_arg_dict), predicts
+    if argv.data_type == 'conll':
+        predict_conll_corpus(argv)
+    else:
+        predict_pos_tagged_corpus(argv)
 

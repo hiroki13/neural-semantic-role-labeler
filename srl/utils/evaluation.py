@@ -1,3 +1,6 @@
+from ..utils.io_utils import say
+
+
 def count_correct(errors):
     total = 0.0
     correct = 0
@@ -67,8 +70,8 @@ def f_measure(predicts, answers, arg_dict):
     else:
         f = 0.
 
-    print '\tProps: %d\tP total: %f\tR total: %f\tCorrect: %f' % (len(predicts), p_total, r_total, correct)
-    print '\tPrecision: %f\tRecall: %f\tF1: %f' % (p, r, f)
+    say('\tF:{:>7.2%}  P:{:>7.2%} ({:>5}/{:>5})  R:{:>7.2%} ({:>5}/{:>5})\n'.format(
+        f, p, int(correct), int(p_total), r, int(correct), int(r_total)))
 
     return f
 
@@ -81,3 +84,11 @@ def count_spans(spans):
     return total
 
 
+def show_f1_history(f1_history):
+    say('\n\tF1 HISTORY')
+    for k, v in sorted(f1_history.items()):
+        if len(v) == 2:
+            say('\tEPOCH-{:d}  \tBEST DEV F:{:.2%}\tBEST TEST F:{:.2%}'.format(k, v[0], v[1]))
+        else:
+            say('\tEPOCH-{:d}  \tBEST DEV F:{:.2%}'.format(k, v[0]))
+    say('\n')

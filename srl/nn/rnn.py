@@ -75,6 +75,47 @@ class GRU(object):
         return relu(T.dot(x, self.W))
 
 
+class GRU2(object):
+
+    def __init__(self, n_i=32, n_h=32, activation=tanh):
+        self.activation = activation
+
+        self.W_xr = theano.shared(sample_weights(n_h, n_h))
+        self.W_hr = theano.shared(sample_weights(n_h, n_h))
+
+        self.W_xz = theano.shared(sample_weights(n_h, n_h))
+        self.W_hz = theano.shared(sample_weights(n_h, n_h))
+
+        self.W_xh = theano.shared(sample_weights(n_h, n_h))
+        self.W_hh = theano.shared(sample_weights(n_h, n_h))
+
+        self.params = [self.W_xr, self.W_hr, self.W_xz, self.W_hz, self.W_xh, self.W_hh]
+
+    def forward(self, xr_t, xz_t, xh_t, h_tm1):
+        r_t = sigmoid(xr_t + T.dot(h_tm1, self.W_hr))
+        z_t = sigmoid(xz_t + T.dot(h_tm1, self.W_hz))
+        h_hat_t = self.activation(xh_t + T.dot((r_t * h_tm1), self.W_hh))
+        h_t = (1. - z_t) * h_tm1 + z_t * h_hat_t
+        return h_t
+
+    def forward_all(self, x, h0):
+        xr = T.dot(x, self.W_xr)
+        xz = T.dot(x, self.W_xz)
+        xh = T.dot(x, self.W_xh)
+        h, _ = theano.scan(fn=self.forward, sequences=[xr, xz, xh], outputs_info=[h0])
+        return h
+
+
+class Layer(object):
+
+    def __init__(self, n_i=32, n_h=32):
+        self.W = theano.shared(sample_weights(n_i, n_h))
+        self.params = [self.W]
+
+    def dot(self, x):
+        return T.dot(x, self.W)
+
+
 def lstm_layers(x, batch, n_fin, n_h, n_y, n_layers=1):
     params = []
 
