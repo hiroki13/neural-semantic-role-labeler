@@ -1,8 +1,10 @@
 from copy import deepcopy
+from collections import Counter
 
 import numpy as np
 import theano
 
+from io_utils import say
 from ..ling.vocab import Vocab, UNK
 
 
@@ -56,21 +58,67 @@ def get_x(corpus, vocab_word):
     return samples
 
 
-def get_y(corpus, vocab_label_tmp=None):
-    if vocab_label_tmp:
-        vocab_label = deepcopy(vocab_label_tmp)
-    else:
-        vocab_label = Vocab()
-
+def get_y(corpus, vocab_label):
     y = []
     for i, sent in enumerate(corpus):
         prd_indices = [i for i, w in enumerate(sent) if w[4] != '-']
 
         labels = []
         for prd_index in xrange(len(prd_indices)):
-            labels.append(get_labels(prd_index, sent, vocab_label))
+            label_ids = []
+            for label in _get_labels(prd_index, sent):
+                if vocab_label.has_key(label):
+                    label_id = vocab_label.get_id(label)
+                else:
+                    label_id = vocab_label.get_id('O')
+                label_ids.append(label_id)
+            labels.append(label_ids)
         y.append(labels)
-    return y, vocab_label
+
+    return y
+
+
+def get_vocab_label(corpus, vocab_label_tmp=None, cut_label=0):
+    iob_labels = _get_iob_labels(corpus)
+    cnt = Counter(_get_label_set(iob_labels))
+    labels = [(w, c) for w, c in sorted(cnt.iteritems(), key=lambda x: x[1], reverse=True) if c > cut_label]
+    say(str(labels))
+    return _create_vocab_label(vocab_label_tmp, iob_labels, labels)
+
+
+def _create_vocab_label(vocab_label_tmp, iob_labels, labels):
+    if vocab_label_tmp:
+        vocab_label = deepcopy(vocab_label_tmp)
+    else:
+        vocab_label = Vocab()
+        vocab_label.add_word('O')
+
+    labels = [label for label, count in labels]
+    for label in iob_labels:
+        if label == 'O':
+            continue
+        if label[2:] in labels:
+            vocab_label.add_word(label)
+
+    return vocab_label
+
+
+def _get_iob_labels(corpus):
+    labels = []
+    for i, sent in enumerate(corpus):
+        prd_indices = [i for i, w in enumerate(sent) if w[4] != '-']
+        labels.extend(label for prd_index in xrange(len(prd_indices)) for label in _get_labels(prd_index, sent))
+    return labels
+
+
+def _get_label_set(labels):
+    label_set = []
+    for label in labels:
+        if label == 'O':
+            label_set.append(label)
+        else:
+            label_set.append(label[2:])
+    return label_set
 
 
 def concat_x_y(x, y):
@@ -110,35 +158,28 @@ def get_marks(sent, prd_index, window=5):
     return marks
 
 
-def get_labels(prd_i, sent, label_dict):
-    sent_args = []
+def _get_labels(prd_i, sent):
+    labels = []
     prev = None
     for w in sent:
         arg = w[5][prd_i]
         if arg.startswith('('):
             if arg.endswith(')'):
                 prev = arg[1:-2]
-                arg_label = 'B-' + prev
-                label_dict.add_word(arg_label)
-                sent_args.append(label_dict.get_id(arg_label))
+                label = 'B-' + prev
                 prev = None
             else:
                 prev = arg[1:-1]
-                arg_label = 'B-' + prev
-                label_dict.add_word(arg_label)
-                sent_args.append(label_dict.get_id(arg_label))
+                label = 'B-' + prev
         else:
             if prev:
-                arg_label = 'I-' + prev
-                label_dict.add_word(arg_label)
-                sent_args.append(label_dict.get_id(arg_label))
+                label = 'I-' + prev
                 if arg.endswith(')'):
                     prev = None
             else:
-                arg_label = 'O'
-                label_dict.add_word(arg_label)
-                sent_args.append(label_dict.get_id(arg_label))
-    return sent_args
+                label = 'O'
+        labels.append(label)
+    return labels
 
 
 def get_samples(phi_sets, emb):
@@ -151,8 +192,11 @@ def get_samples(phi_sets, emb):
     for phi in phi_sets:
         # 1D: n_prds, 2D: n_words
         for ctx, mark, label in phi:
-            x = array(get_phi_vecs(ctx, mark, emb), True)
+            x = array(get_phi_vecs(ctx, mark, emb), is_float=True)
             y = array(label)
+
+            if len(y) < 2:
+                continue
 
             assert len(x) == len(y), '\n%s\n%s\n' % (str(x), str(y))
             samples.append((x, y))

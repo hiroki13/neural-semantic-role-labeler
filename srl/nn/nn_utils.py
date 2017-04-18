@@ -29,7 +29,7 @@ def build_shared_zeros(shape):
     )
 
 
-def sample_weights_bengio(size_x, size_y=0):
+def sample_weights(size_x, size_y=0):
     if size_y == 0:
         W = np.asarray(np.random.uniform(low=-np.sqrt(6.0 / (size_x + size_y)),
                                          high=np.sqrt(6.0 / (size_x + size_y)),
@@ -43,7 +43,7 @@ def sample_weights_bengio(size_x, size_y=0):
     return W
 
 
-def sample_weights(size_x, size_y=0):
+def sample_weights_normal(size_x, size_y=0):
     if size_y == 0:
         W = np.asarray(np.random.uniform(low=-0.08, high=0.08, size=size_x),
                        dtype=theano.config.floatX)

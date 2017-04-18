@@ -43,7 +43,7 @@ class ModelAPI(object):
         # Build a model #
         #################
         say('\n\nMODEL:  Unit: %s  Opt: %s' % (argv.unit, argv.opt))
-        self.model = Model(unit=argv.unit, x=x, y=d, depth=argv.layer, n_in=n_in, n_h=n_h, n_y=n_y, reg=reg)
+        self.model = Model(argv=argv, x=x, y=d, n_in=n_in, n_h=n_h, n_y=n_y, reg=reg)
 
     def set_train_f(self):
         model = self.model

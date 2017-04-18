@@ -1,7 +1,7 @@
 import theano
 import theano.tensor as T
 
-from srl.nn.nn_utils import logsumexp, sample_weights, relu
+from ..nn.nn_utils import logsumexp, sample_weights
 
 
 class CRF(object):
@@ -10,10 +10,11 @@ class CRF(object):
         self.W = theano.shared(sample_weights(n_i, n_h))
         self.W_t = theano.shared(sample_weights(n_h, n_h))
         self.BOS = theano.shared(sample_weights(n_h))
-        self.params = [self.W, self.W_t, self.BOS]
+        self.b = theano.shared(sample_weights(n_h))
+        self.params = [self.W, self.W_t, self.BOS, self.b]
 
     def dot(self, x):
-        return relu(T.dot(x, self.W))
+        return T.dot(x, self.W) + self.b
 
     def y_prob(self, h, y, batch):
         """

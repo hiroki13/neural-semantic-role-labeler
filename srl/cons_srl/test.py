@@ -1,6 +1,6 @@
 from ..utils.io_utils import say
 from ..utils.loader import load_conll, load_pos_tagged_corpus, load_data
-from ..utils.saver import save_predicted_prop, save_predicted_srl
+from ..utils.saver import save_predicted_prop, save_predicted_srl, output_predicted_srl_to_cmd
 from ..utils.preprocess import get_x, get_y, concat_x_y, get_samples, get_sample_x
 from model_api import ModelAPI
 
@@ -43,9 +43,13 @@ def predict_pos_tagged_corpus(argv):
     # Test #
     ########
     predicts = model_api.predict_all2(test_samples)
-    fn = 'result-srl.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
-         (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
-    save_predicted_srl(test_corpus, vocab_label, predicts, fn)
+
+    if argv.output:
+        output_predicted_srl_to_cmd(test_corpus, vocab_label, predicts)
+    else:
+        fn = 'result-srl.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
+             (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
+        save_predicted_srl(test_corpus, vocab_label, predicts, fn)
 
 
 def predict_conll_corpus(argv):

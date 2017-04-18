@@ -1,7 +1,7 @@
 from ..utils.io_utils import say
 from ..utils.loader import load_conll, load_init_emb
 from ..utils.saver import dump_data, save_predicted_prop
-from ..utils.preprocess import get_x, get_y, concat_x_y, get_samples, get_batches
+from ..utils.preprocess import get_x, get_y, concat_x_y, get_vocab_label, get_samples, get_batches
 from ..utils.evaluation import show_f1_history
 from model_api import ModelAPI
 
@@ -27,11 +27,13 @@ def get_init_emb(argv):
     return init_emb, vocab_word
 
 
-def create_samples(corpus, vocab_word, vocab_label=None, init_emb=None):
+def create_samples(corpus, vocab_word, vocab_label=None, init_emb=None, cut_label=0):
     if corpus is None:
         return [], None
+
+    vocab_label = get_vocab_label(corpus, vocab_label, cut_label)
     x = get_x(corpus, vocab_word)
-    y, vocab_label = get_y(corpus, vocab_label)
+    y = get_y(corpus, vocab_label)
     xy = concat_x_y(x, y)
     samples = get_samples(xy, init_emb)
     return samples, vocab_label
@@ -58,9 +60,9 @@ def main(argv):
     ##################
     # samples: 1D: n_samples, 2D: (x, y)
     say('\n\tCreating Training/Dev/Test Samples...')
-    train_samples, vocab_label = create_samples(train_corpus, vocab_word, None, init_emb)
-    dev_samples, vocab_label_dev = create_samples(dev_corpus, vocab_word, vocab_label, init_emb)
-    test_samples, vocab_label_test = create_samples(test_corpus, vocab_word, vocab_label, init_emb)
+    train_samples, vocab_label = create_samples(train_corpus, vocab_word, None, init_emb, argv.cut_label)
+    dev_samples, vocab_label_dev = create_samples(dev_corpus, vocab_word, vocab_label, init_emb, 0)
+    test_samples, vocab_label_test = create_samples(test_corpus, vocab_word, vocab_label, init_emb, 0)
 
     say('\tTrain Samples: %d' % len(train_samples))
     say('\tDev Samples: %d' % len(dev_samples))

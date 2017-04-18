@@ -57,9 +57,13 @@ def load_pos_tagged_corpus(path, data_size=1000000, file_encoding='utf-8'):
         for line in f:
             sent = []
             for token in line.rstrip().split():
+                token = ''.join([e.decode(file_encoding) for e in token.split()])
                 es = token.split(UNDER_BAR)
-                assert len(es) == 2
-                word = es[0].decode(file_encoding).lower()
+
+                if len(es) != 2:
+                    es = [UNDER_BAR, es[-1]]
+
+                word = es[0].lower()
                 tag = es[1].decode(file_encoding)
                 syn = ''
                 ne = ''

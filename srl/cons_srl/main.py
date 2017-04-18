@@ -18,7 +18,8 @@ if __name__ == '__main__':
     parser.add_argument('--test_data',  help='path to test data')
 
     """ NN architecture """
-    parser.add_argument('--unit',  default='gru', help='Unit')
+    parser.add_argument('--unit',  default='gru', help='gru/lstm')
+    parser.add_argument('--connect',  default='agg', help='agg/res')
     parser.add_argument('--vocab',  type=int, default=100000000, help='vocabulary size')
     parser.add_argument('--emb',    type=int, default=50,        help='dimension of embeddings')
     parser.add_argument('--window', type=int, default=5,         help='window size for convolution')
@@ -26,7 +27,9 @@ if __name__ == '__main__':
     parser.add_argument('--layer',  type=int, default=1,         help='number of layers')
 
     """ training options """
+    parser.add_argument('--cut_label', type=int,  default=0)
     parser.add_argument('--save', type=int, default=0, help='parameters to be saved or not')
+    parser.add_argument('--output', type=int, default=0, help='output results to cmd line')
     parser.add_argument('--data_size', type=int, default=1000000, help='data size to be used')
     parser.add_argument('--init_emb', default=None, help='Initial embedding to be loaded')
     parser.add_argument('--opt', default='adam', help='optimization method')

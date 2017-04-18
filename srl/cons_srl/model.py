@@ -1,10 +1,11 @@
 import theano
 import theano.tensor as T
 
-from srl.nn.crf import CRF
-from ..nn.nn_utils import L2_sqr
+from ..nn.nn import BaseUnit
+from ..nn.rnn import GRU, LSTM
+from ..nn.crf import CRF
+from ..nn.nn_utils import L2_sqr, relu
 from ..nn.optimizers import adam
-from ..nn.rnn import GRU, GRU2, LSTM, Layer
 from ..utils.io_utils import say
 
 
@@ -108,7 +109,11 @@ class Model2(object):
 
 class Model(object):
 
-    def __init__(self, unit, x, y, depth, n_in, n_h, n_y, reg=0.0001):
+    def __init__(self, argv, x, y, n_in, n_h, n_y, reg=0.0001):
+        self.argv = argv
+        self.unit = argv.unit
+        self.depth = argv.layer
+        self.connect = argv.connect
 
         self.x = x  # 1D: batch_size, 2D: n_words, 3D: n_fin
         self.y = y  # 1D: batch_size, 2D: n_words
@@ -122,7 +127,7 @@ class Model(object):
         ################
         # Set networks #
         ################
-        self.set_layers(unit, n_fin, n_h, n_y, depth)
+        self.set_layers(n_fin, n_h, n_y)
         self.set_params()
 
         #############
@@ -147,18 +152,21 @@ class Model(object):
         self.g = T.grad(self.cost, self.params)
         self.updates = adam(self.params, self.g)
 
-    def set_layers(self, unit, n_fin, n_h, n_y, depth):
-        if unit.lower() == 'gru':
-            layer = GRU2
-        else:
-            layer = LSTM
+    def set_layers(self, n_fin, n_h, n_y):
+        unit = self._select_unit(self.unit)
 
-        self.layers.append(Layer(n_i=n_fin, n_h=n_h))
-        for i in xrange(depth):
-            self.layers.append(layer(n_i=n_h, n_h=n_h))
+        self.layers.append(BaseUnit(n_i=n_fin, n_h=n_h, activation=relu))
+        for i in xrange(self.depth):
+            self.layers.append(unit(n_i=n_h, n_h=n_h))
+            if self.connect == 'agg':
+                self.layers.append(BaseUnit(n_i=n_h*2, n_h=n_h, activation=relu))
 
         self.layers.append(CRF(n_i=n_h, n_h=n_y))
         say('Hidden Layer: %d' % (len(self.layers) - 2))
+
+    @staticmethod
+    def _select_unit(unit_name):
+        return GRU if unit_name.lower() == 'gru' else LSTM
 
     def set_params(self):
         for l in self.layers:
@@ -169,13 +177,32 @@ class Model(object):
         return self.layers[0].dot(x.dimshuffle(1, 0, 2))
 
     def mid_layer(self, x):
+        if self.connect == 'agg':
+            return self._aggregation_connected_layers(x)
+        return self._residual_connected_layers(x)
+
+    def _aggregation_connected_layers(self, x):
         h0 = T.zeros_like(x[0], dtype=theano.config.floatX)
-        for layer in self.layers[1:-1]:
-            h = layer.forward_all(x, h0)
+        for i in xrange(self.depth):
+            h = self.layers[i*2+1].forward_all(x, h0)
+            x = self.layers[i*2+2].dot(T.concatenate([x, h], axis=2))[::-1]
+            h0 = x[0]
+
+        if (self.depth % 2) == 1:
+            x = x[::-1]
+
+        return x
+
+    def _residual_connected_layers(self, x):
+        h0 = T.zeros_like(x[0], dtype=theano.config.floatX)
+        for i in xrange(self.depth):
+            h = self.layers[i+1].forward_all(x, h0)
             x = (x + h)[::-1]
             h0 = h[-1]
-        if (len(self.layers) - 2) % 2 == 1:
+
+        if (self.depth % 2) == 1:
             x = x[::-1]
+
         return x
 
     def output_layer(self, h):
