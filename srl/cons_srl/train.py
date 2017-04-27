@@ -72,8 +72,8 @@ def main(argv):
     ##################
     # Create batches #
     ##################
-    train_samples = get_batches(train_samples, argv.batch)
-    say('\tTrain Batches: %d' % len(train_samples))
+    train_batches = get_batches(train_samples, argv.batch)
+    say('\tTrain Batches: %d' % len(train_batches))
 
     ########################
     # dump arg/vocab dicts #
@@ -101,7 +101,8 @@ def main(argv):
 
     for epoch in xrange(argv.epoch):
         say('\nEpoch: %d' % (epoch + 1))
-        model_api.train_all(train_samples)
+        train_batches = get_batches(train_samples, argv.batch)
+        model_api.train_all(train_batches)
 
         ###############
         # Development #

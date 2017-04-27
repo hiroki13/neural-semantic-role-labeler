@@ -1,42 +1,7 @@
 import theano
 import theano.tensor as T
 
-from crf import CRF
-from nn_utils import sigmoid, tanh, relu, build_shared_zeros, sample_weights
-
-
-def gru_layers(x, batch, n_fin, n_h, n_y, n_layers=1):
-    params = []
-
-    for i in xrange(n_layers):
-        if i == 0:
-            layer = GRU(n_i=n_fin, n_h=n_h)
-            layer_input = relu(T.dot(x.dimshuffle(1, 0, 2), layer.W))
-            # h0: 1D: Batch, 2D: n_h
-            h0 = T.zeros((batch, n_h), dtype=theano.config.floatX)
-        else:
-            layer = GRU(n_i=n_h * 2, n_h=n_h)
-            # h: 1D: n_words, 2D: Batch, 3D n_h
-            layer_input = relu(T.dot(T.concatenate([layer_input, h], 2), layer.W))[::-1]
-            h0 = layer_input[0]
-
-        xr = T.dot(layer_input, layer.W_xr)
-        xz = T.dot(layer_input, layer.W_xz)
-        xh = T.dot(layer_input, layer.W_xh)
-
-        h, _ = theano.scan(fn=layer.forward, sequences=[xr, xz, xh], outputs_info=[h0])
-        params.extend(layer.params)
-
-    layer = CRF(n_i=n_h * 2, n_h=n_y)
-    params.extend(layer.params)
-    h = relu(T.dot(T.concatenate([layer_input, h], 2), layer.W))
-
-    if n_layers % 2 == 0:
-        emit = h[::-1]
-    else:
-        emit = h
-
-    return params, layer, emit
+from nn_utils import sigmoid, tanh, build_shared_zeros, sample_weights
 
 
 class GRU(object):
@@ -70,44 +35,6 @@ class GRU(object):
         return h
 
 
-def lstm_layers(x, batch, n_fin, n_h, n_y, n_layers=1):
-    params = []
-
-    for i in xrange(n_layers):
-        if i == 0:
-            layer = LSTM(n_i=n_fin, n_h=n_h)
-            layer_input = relu(T.dot(x.dimshuffle(1, 0, 2), layer.W))  # x: 1D: Batch, 2D: n_words, 3D: n_fin
-            h0 = layer.h0 * T.ones((batch, n_h))  # h0: 1D: Batch, 2D: n_h
-            c0 = layer.c0 * T.ones((batch, n_h))  # c0: 1D: Batch, 2D: n_h
-        else:
-            layer = LSTM(n_i=n_h * 2, n_h=n_h)
-            layer_input = relu(T.dot(T.concatenate([layer_input, h], 2), layer.W))[::-1]  # h: 1D: n_words, 2D: Batch, 3D n_h
-            h0 = layer_input[0]
-            c0 = c[-1]
-
-        xi = T.dot(layer_input, layer.W_xi)  # layer_input: 1D: n_words, 2D: Batch, 3D: n_fin
-        xf = T.dot(layer_input, layer.W_xf)
-        xc = T.dot(layer_input, layer.W_xc)
-        xo = T.dot(layer_input, layer.W_xo)
-
-        [h, c], _ = theano.scan(fn=layer.forward,
-                                sequences=[xi, xf, xc, xo],
-                                outputs_info=[h0, c0])
-
-        params.extend(layer.params)
-
-    layer = CRF(n_i=n_h * 2, n_h=n_y)
-    params.extend(layer.params)
-    h = relu(T.dot(T.concatenate([layer_input, h], 2), layer.W))
-
-    if n_layers % 2 == 0:
-        emit = h[::-1]
-    else:
-        emit = h
-
-    return params, layer, emit
-
-
 class LSTM(object):
     def __init__(self, n_i, n_h, activation=tanh):
         self.activation = activation
@@ -116,21 +43,21 @@ class LSTM(object):
 
         self.W = theano.shared(sample_weights(n_i, n_h))
 
-        """input gate parameters"""
+        # input gate parameters
         self.W_xi = theano.shared(sample_weights(n_h, n_h))
         self.W_hi = theano.shared(sample_weights(n_h, n_h))
         self.W_ci = theano.shared(sample_weights(n_h))
 
-        """forget gate parameters"""
+        # forget gate parameters
         self.W_xf = theano.shared(sample_weights(n_h, n_h))
         self.W_hf = theano.shared(sample_weights(n_h, n_h))
         self.W_cf = theano.shared(sample_weights(n_h))
 
-        """cell parameters"""
+        # cell parameters
         self.W_xc = theano.shared(sample_weights(n_h, n_h))
         self.W_hc = theano.shared(sample_weights(n_h, n_h))
 
-        """output gate parameters"""
+        # output gate parameters
         self.W_xo = theano.shared(sample_weights(n_h, n_h))
         self.W_ho = theano.shared(sample_weights(n_h, n_h))
         self.W_co = theano.shared(sample_weights(n_h))

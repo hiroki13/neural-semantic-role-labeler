@@ -57,6 +57,29 @@ def _map_span_to_str(sent, spans):
     return args
 
 
+def _map_span_to_str_sem(sent, spans):
+    k = 0
+    args = []
+    for w_i in xrange(len(sent)):
+        if k >= len(spans):
+            args.append('*')
+            continue
+        span = spans[k]
+        if span[1] < w_i < span[2]:  # within span
+            args.append('*%s*' % span[0])
+        elif w_i == span[1] and w_i == span[2]:  # begin and end of span
+            args.append('(' + span[0] + '*)')
+            k += 1
+        elif w_i == span[1]:  # begin of span
+            args.append('(' + span[0] + '*')
+        elif w_i == span[2]:  # end of span
+            args.append('*' + span[0] + ')')
+            k += 1
+        else:
+            args.append('*')  # without span
+    return args
+
+
 def save_predicted_prop(corpus, vocab_label, predicts, path):
     f = open(path, 'w')
     prd_index = 0
@@ -131,7 +154,7 @@ def output_predicted_srl_to_cmd(corpus, vocab_label, predicts, file_encoding='ut
             if w_i in prds:
                 p_i += 1
                 spans = _get_spans(predicts[k], vocab_label)
-                args = _map_span_to_str(sent, spans)
+                args = _map_span_to_str_sem(sent, spans)
                 for w_j, a_label in enumerate(args):
                     column[w_j][p_i] = a_label
                 k += 1

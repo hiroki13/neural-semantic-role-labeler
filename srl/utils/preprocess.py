@@ -214,18 +214,14 @@ def get_sample_x(phi_sets, emb):
     return samples
 
 
-def get_batches(samples, batch_size, test=False):
+def get_batches(samples, batch_size):
     """
     :param samples: 1D: n_samples, 2D: (sample_x, sample_y); 3D: n_words
     :return shared_sampleset: 1D: 8, 2D: n_baches, 3D: batch
     """
 
-    if samples is None:
-        return None
-
-    if test is False:
-        np.random.shuffle(samples)
-        samples.sort(key=lambda sample: len(sample[0]))  # sort with n_words
+    np.random.shuffle(samples)
+    samples.sort(key=lambda sample: len(sample[0]))  # sort with n_words
 
     ##############
     # Initialize #
@@ -265,8 +261,7 @@ def get_batches(samples, batch_size, test=False):
 def array(_sample, is_float=False):
     if is_float:
         return np.asarray(_sample, dtype=theano.config.floatX)
-    else:
-        return np.asarray(_sample, dtype='int32')
+    return np.asarray(_sample, dtype='int32')
 
 
 def get_phi_vecs(ctx, mark, emb):
@@ -284,66 +279,3 @@ def get_phi_vecs(ctx, mark, emb):
         vec.append(m)
         phi_vecs.append(vec)
     return phi_vecs
-
-
-def convert_data_test(id_sents, prds, id_ctx, marks, args, emb):
-    batch_x = []
-    batch_y = []
-
-    for s_i in xrange(len(id_sents)):
-        sent_w = [emb[w_id] for w_id in id_sents[s_i]]
-        sent_prds = prds[s_i]
-        sent_ctx = id_ctx[s_i]
-        sent_marks = marks[s_i]
-        sent_args = args[s_i]
-
-        for p_i, p_index in enumerate(sent_prds):
-            prd = sent_w[p_index]
-            ctx = []
-            for w_index in sent_ctx[p_i]:
-                ctx.extend(sent_w[w_index])
-
-            mark = sent_marks[p_i]
-            arg = sent_args[p_i]
-
-            sent_sample = []
-            for w_index, w in enumerate(sent_w):
-                sample = []
-                sample.extend(w)
-                sample.extend(prd)
-                sample.extend(ctx)
-                sample.append(mark[w_index])
-                sent_sample.append(sample)
-
-            batch_x.append(np.asarray([sent_sample], dtype=theano.config.floatX))
-            batch_y.append(np.asarray([arg], dtype='int32'))
-
-    return batch_x, batch_y
-
-
-def shuffle_batches(batches,  batch):
-    """
-    :param batches: 1D: n_batches, 2D: batch_size; (sample_x, sample_y)
-    :param batch:
-    :return:
-    """
-    samples = [(sample_x, sample_y) for batch in batches for sample_x, sample_y in zip(*batch)]
-    return get_batches(samples, batch)
-
-
-def shuffle(sample_x, sample_y):
-    new_x = []
-    new_y = []
-
-    indices = [i for i in xrange(len(sample_x))]
-    np.random.shuffle(indices)
-
-    for i in indices:
-        batch_x = sample_x[i]
-        batch_y = sample_y[i]
-        b_indices = [j for j in xrange(len(batch_x))]
-        np.random.shuffle(b_indices)
-        new_x.append([batch_x[j] for j in b_indices])
-        new_y.append([batch_y[j] for j in b_indices])
-
-    return new_x, new_y
