@@ -5,7 +5,26 @@ import numpy as np
 import theano
 
 from io_utils import say
-from ..ling.vocab import Vocab, UNK
+from ..ling.vocab import Vocab, UNK, VERB, SLASH, UNDER_BAR
+
+
+def convert_to_conll(text, file_encoding='utf-8'):
+    # text: [u'I_PRP am_VBP John_NNP ._.']
+    corpus = []
+    sent = []
+    for word in text[0].split():
+        elem = word.split(UNDER_BAR)
+        assert len(elem) == 2
+
+        word = elem[0].lower()
+        tag = elem[1].decode(file_encoding)
+        syn = ''
+        ne = ''
+        prd = VERB if tag.startswith(VERB) else SLASH
+        prop = []
+        sent.append((word, tag, syn, ne, prd, prop))
+    corpus.append(sent)
+    return corpus
 
 
 def get_id_corpus(corpus, vocab_word):
@@ -214,6 +233,23 @@ def get_sample_x(phi_sets, emb):
     return samples
 
 
+def get_phi_vecs(ctx, mark, emb):
+    """
+    :param ctx: 1D: n_words, 2D: window + 1; elem=word id
+    :param mark: 1D: n_words; elem=float (1.0 or 0.0)
+    :param emb: 1D: n_vocab, 2D: dim_emb
+    :return: 1D: n_words, 2D: (window + 1) * dim_w + 1
+    """
+    phi_vecs = []
+    for c, m in zip(ctx, mark):
+        vec = []
+        for w_id in c:
+            vec.extend(emb[w_id])
+        vec.append(m)
+        phi_vecs.append(vec)
+    return phi_vecs
+
+
 def get_batches(samples, batch_size):
     """
     :param samples: 1D: n_samples, 2D: (sample_x, sample_y); 3D: n_words
@@ -262,20 +298,3 @@ def array(_sample, is_float=False):
     if is_float:
         return np.asarray(_sample, dtype=theano.config.floatX)
     return np.asarray(_sample, dtype='int32')
-
-
-def get_phi_vecs(ctx, mark, emb):
-    """
-    :param ctx: 1D: n_words, 2D: window + 1; elem=word id
-    :param mark: 1D: n_words; elem=float (1.0 or 0.0)
-    :param emb:
-    :return: 1D: n_words, 2D: (window + 1) * dim_w + 1
-    """
-    phi_vecs = []
-    for c, m in zip(ctx, mark):
-        vec = []
-        for w_id in c:
-            vec.extend(emb[w_id])
-        vec.append(m)
-        phi_vecs.append(vec)
-    return phi_vecs

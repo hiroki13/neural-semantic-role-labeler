@@ -75,9 +75,9 @@ def main(argv):
     train_batches = get_batches(train_samples, argv.batch)
     say('\tTrain Batches: %d' % len(train_batches))
 
-    ########################
-    # dump arg/vocab dicts #
-    ########################
+    #############################
+    # dump label/word/emb dicts #
+    #############################
     dump_data(data=vocab_label, fn='label.size-%d' % (vocab_label.size()))
     dump_data(data=vocab_word, fn='word.size-%d' % (vocab_word.size()))
     dump_data(data=init_emb, fn='emb.size-%d' % (len(init_emb)))
@@ -101,15 +101,19 @@ def main(argv):
 
     for epoch in xrange(argv.epoch):
         say('\nEpoch: %d' % (epoch + 1))
-        train_batches = get_batches(train_samples, argv.batch)
-        model_api.train_all(train_batches)
 
-        ###############
-        # Development #
-        ###############
+        #########
+        # Train #
+        #########
+        train_batches = get_batches(train_samples, argv.batch)
+        model_api.train(train_batches)
+
+        #######
+        # Dev #
+        #######
         if dev_samples:
             say('  DEV')
-            dev_f, predicts = model_api.predict_all(dev_samples, vocab_label_dev)
+            dev_f, predicts = model_api.predict_and_eval(dev_samples, vocab_label_dev)
 
             if best_dev_f < dev_f:
                 best_dev_f = dev_f
@@ -123,14 +127,14 @@ def main(argv):
 
                 fn = 'result-dev.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
                      (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
-                save_predicted_prop(dev_corpus, vocab_label_dev, predicts, fn)
+                save_predicted_prop(dev_corpus, vocab_label, predicts, fn)
 
         ########
         # Test #
         ########
         if test_samples:
             say('  TEST')
-            test_f, predicts = model_api.predict_all(test_samples, vocab_label_test)
+            test_f, predicts = model_api.predict_and_eval(test_samples, vocab_label_test)
 
             if epoch+1 in f1_history:
                 f1_history[best_epoch+1].append(test_f)

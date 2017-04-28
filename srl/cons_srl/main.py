@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Deep SRL tagger.')
 
-    parser.add_argument('-mode', default='train', help='train/test')
+    parser.add_argument('-mode', default='train', help='train/test/cmd')
     parser.add_argument('--data_type',  default='conll', help='conll/pos_tagged')
 
     parser.add_argument('--train_data',  help='path to training data')

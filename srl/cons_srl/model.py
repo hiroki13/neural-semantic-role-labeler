@@ -43,8 +43,9 @@ class Model(object):
         # Scores #
         ##########
         self.p_y = self.get_y_scores(o, y.dimshuffle(1, 0), batch)
-        self.y_pred = self.get_scores(o, batch)
-        self.errors = T.neq(self.y_pred, y)
+        self.y_hat = self.decode(o, batch)
+#        self.errors = T.neq(self.y_hat, y)
+        self.errors = T.neq(y, self.y_hat)
 
         ############
         # Training #
@@ -111,7 +112,7 @@ class Model(object):
         crf = self.layers[-1]
         return crf.dot(h)
 
-    def get_scores(self, h, batch):
+    def decode(self, h, batch):
         crf = self.layers[-1]
         return crf.vitabi(h, batch)
 

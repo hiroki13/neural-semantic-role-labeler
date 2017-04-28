@@ -58,7 +58,7 @@ class ModelAPI(object):
         model = self.model
         self.pred_f = theano.function(
             inputs=model.inputs,
-            outputs=[model.y_pred, model.errors],
+            outputs=[model.y_hat, model.errors],
             mode='FAST_RUN'
         )
 
@@ -66,15 +66,11 @@ class ModelAPI(object):
         model = self.model
         self.pred_f = theano.function(
             inputs=[model.x],
-            outputs=model.y_pred,
+            outputs=model.y_hat,
             mode='FAST_RUN'
         )
 
-    def train(self, c, r, a, res_vec, adr_vec, n_agents):
-        nll, g_norm, pred_a, pred_r = self.train_f(c, r, a, res_vec, adr_vec, n_agents)
-        return nll, g_norm, pred_a, pred_r
-
-    def train_all(self, train_samples):
+    def train(self, train_samples):
         batch_indices = range(len(train_samples))
         np.random.shuffle(batch_indices)
 
@@ -84,6 +80,7 @@ class ModelAPI(object):
         errors = []
 
         say('  TRAIN')
+        print '\t',
         for index, b_index in enumerate(batch_indices):
             if (index + 1) % 100 == 0:
                 print '%d' % (index + 1),
@@ -107,7 +104,22 @@ class ModelAPI(object):
         say('\tAverage Negative Log Likelihood: %f' % avg_loss)
         say('\tTrain Accuracy: %f' % (correct / total))
 
-    def predict_all(self, samples, arg_dict):
+    def predict(self, samples):
+        start = time.time()
+        predicts = []
+        for index, sample_x in enumerate(samples):
+            if (index + 1) % 1000 == 0:
+                print '%d' % (index + 1),
+                sys.stdout.flush()
+
+            pred = self.pred_f([sample_x])
+            predicts.append(pred[0])
+
+        end = time.time()
+        say('\n\tTime: %f seconds' % (end - start))
+        return predicts
+
+    def predict_and_eval(self, samples, arg_dict):
         start = time.time()
 
         predicts = []
@@ -130,21 +142,6 @@ class ModelAPI(object):
         say('\n\tAccuracy: %f' % (correct / total))
 
         return f_measure(predicts, y, arg_dict), predicts
-
-    def predict_all2(self, samples):
-        start = time.time()
-        predicts = []
-        for index, sample_x in enumerate(samples):
-            if (index + 1) % 1000 == 0:
-                print '%d' % (index + 1),
-                sys.stdout.flush()
-
-            pred = self.pred_f([sample_x])
-            predicts.append(pred[0])
-
-        end = time.time()
-        say('\n\tTime: %f seconds' % (end - start))
-        return predicts
 
     def get_pnorm_stat(self):
         lst_norms = []

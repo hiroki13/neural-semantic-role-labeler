@@ -1,7 +1,8 @@
-from ..utils.io_utils import say
+from ..utils.io_utils import say, read_line_from_cmd
 from ..utils.loader import load_conll, load_pos_tagged_corpus, load_data
-from ..utils.saver import save_predicted_prop, save_predicted_srl, output_predicted_srl_to_cmd
-from ..utils.preprocess import get_x, get_y, concat_x_y, get_samples, get_sample_x
+from ..utils.saver import save_predicted_prop, save_predicted_srl, output_predicted_srl_to_cmd, write_to_file
+from ..utils.preprocess import get_x, get_y, concat_x_y, get_samples, get_sample_x, get_vocab_label, convert_to_conll
+from ..parser.postagger import StanfordTagger
 from model_api import ModelAPI
 
 
@@ -42,7 +43,7 @@ def predict_pos_tagged_corpus(argv):
     ########
     # Test #
     ########
-    predicts = model_api.predict_all2(test_samples)
+    predicts = model_api.predict(test_samples)
 
     if argv.output:
         output_predicted_srl_to_cmd(test_corpus, vocab_label, predicts)
@@ -73,10 +74,11 @@ def predict_conll_corpus(argv):
     ##################
     # Create samples #
     ##################
-    # samples: 1D: n_samples, 2D: (x, y)
+    vocab_label_test = get_vocab_label(test_corpus, vocab_label, 0)
     x = get_x(test_corpus, vocab_word)
-    y, vocab_label_test = get_y(test_corpus, vocab_label)
+    y = get_y(test_corpus, vocab_label)
     xy = concat_x_y(x, y)
+    # samples: 1D: n_samples, 2D: (x, y)
     test_samples = get_samples(xy, init_emb)
     say('\tTest Samples: %d' % len(test_samples))
 
@@ -91,10 +93,52 @@ def predict_conll_corpus(argv):
     ########
     # Test #
     ########
-    test_f, predicts = model_api.predict_all(test_samples, vocab_label_test)
+    test_f, predicts = model_api.predict_and_eval(test_samples, vocab_label_test)
     fn = 'result-test.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
          (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
-    save_predicted_prop(test_corpus, vocab_label_test, predicts, fn)
+    save_predicted_prop(test_corpus, vocab_label, predicts, fn)
+
+
+def predict_from_cmd_text(argv):
+    ##########################
+    # Load initial embedding #
+    ##########################
+    say('\n\tInitial Embedding Loading...')
+    init_emb = load_data(argv.load_emb)
+    vocab_word = load_data(argv.load_word)
+    vocab_label = load_data(argv.load_label)
+    say('\tVocabulary Size: %d' % vocab_word.size())
+    say('\tLabel size: %d' % vocab_label.size())
+
+    #############
+    # Model API #
+    #############
+    say('\nModel Loading...')
+    model_api = ModelAPI(argv, init_emb, vocab_word, vocab_label)
+    model_api.model = load_data(argv.load_model)
+    model_api.set_pred_f()
+
+    ##################
+    # Create samples #
+    ##################
+    say('\n')
+    text = read_line_from_cmd()
+    write_to_file(text)
+    tagger = StanfordTagger(argv)
+    sent = tagger.tagging()
+    test_corpus = convert_to_conll(sent)
+
+    # samples: 1D: n_samples, 2D: (x, y)
+    x = get_x(test_corpus, vocab_word)
+    test_samples = get_sample_x(x, init_emb)
+    say('\tTest Samples: %d' % len(test_samples))
+
+    ###########
+    # Predict #
+    ###########
+    predicts = model_api.predict(test_samples)
+    say('\n')
+    output_predicted_srl_to_cmd(test_corpus, vocab_label, predicts)
 
 
 def main(argv):
@@ -107,6 +151,7 @@ def main(argv):
 
     if argv.data_type == 'conll':
         predict_conll_corpus(argv)
-    else:
+    elif argv.data_type == 'pos':
         predict_pos_tagged_corpus(argv)
-
+    else:
+        predict_from_cmd_text(argv)

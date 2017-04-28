@@ -7,6 +7,12 @@ def dump_data(data, fn):
         cPickle.dump(data, gf, cPickle.HIGHEST_PROTOCOL)
 
 
+def write_to_file(text, path='tmp.txt', file_encoding='utf-8'):
+    f = open(path, 'w')
+    print >> f, text.encode(file_encoding)
+    f.close()
+
+
 def _get_spans(args, vocab_label):
     spans = []
     span = []
