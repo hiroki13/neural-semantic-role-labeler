@@ -11,7 +11,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Deep SRL tagger.')
 
     parser.add_argument('-mode', default='train', help='train/test/cmd')
-    parser.add_argument('--data_type',  default='conll', help='conll/pos_tagged')
+    parser.add_argument('--data_type',  default='conll', help='conll/pos')
 
     parser.add_argument('--train_data',  help='path to training data')
     parser.add_argument('--dev_data',  help='path to dev data')
@@ -29,6 +29,7 @@ if __name__ == '__main__':
     """ training options """
     parser.add_argument('--cut_label', type=int,  default=0)
     parser.add_argument('--save', type=int, default=0, help='parameters to be saved or not')
+    parser.add_argument('--out_file', type=str, default=None, help='output file name')
     parser.add_argument('--output', type=int, default=0, help='output results to cmd line')
     parser.add_argument('--data_size', type=int, default=1000000, help='data size to be used')
     parser.add_argument('--init_emb', default=None, help='Initial embedding to be loaded')

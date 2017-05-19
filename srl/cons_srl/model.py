@@ -44,7 +44,6 @@ class Model(object):
         ##########
         self.p_y = self.get_y_scores(o, y.dimshuffle(1, 0), batch)
         self.y_hat = self.decode(o, batch)
-#        self.errors = T.neq(self.y_hat, y)
         self.errors = T.neq(y, self.y_hat)
 
         ############
@@ -81,15 +80,31 @@ class Model(object):
 
     def mid_layer(self, x):
         if self.connect == 'agg':
-            return self._aggregation_connected_layers(x)
+            if self.unit == 'gru':
+                return self._aggregation_connected_gru_layers(x)
+            return self._aggregation_connected_lstm_layers(x)
         return self._residual_connected_layers(x)
 
-    def _aggregation_connected_layers(self, x):
+    def _aggregation_connected_gru_layers(self, x):
         h0 = T.zeros_like(x[0], dtype=theano.config.floatX)
         for i in xrange(self.depth):
             h = self.layers[i*2+1].forward_all(x, h0)
             x = self.layers[i*2+2].dot(T.concatenate([x, h], axis=2))[::-1]
             h0 = x[0]
+
+        if (self.depth % 2) == 1:
+            x = x[::-1]
+
+        return x
+
+    def _aggregation_connected_lstm_layers(self, x):
+        h0 = T.zeros_like(x[0], dtype=theano.config.floatX)
+        c0 = T.zeros_like(x[0], dtype=theano.config.floatX)
+        for i in xrange(self.depth):
+            h, c = self.layers[i*2+1].forward_all(x, h0, c0)
+            x = self.layers[i*2+2].dot(T.concatenate([x, h], axis=2))[::-1]
+            h0 = x[0]
+            c0 = c[-1]
 
         if (self.depth % 2) == 1:
             x = x[::-1]
@@ -102,10 +117,8 @@ class Model(object):
             h = self.layers[i+1].forward_all(x, h0)
             x = (x + h)[::-1]
             h0 = h[-1]
-
         if (self.depth % 2) == 1:
             x = x[::-1]
-
         return x
 
     def output_layer(self, h):

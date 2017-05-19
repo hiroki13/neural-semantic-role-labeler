@@ -1,6 +1,6 @@
 from ..utils.io_utils import say
 from ..utils.loader import load_conll, load_init_emb
-from ..utils.saver import dump_data, save_predicted_prop
+from ..utils.saver import dump_data
 from ..utils.preprocess import get_x, get_y, concat_x_y, get_vocab_label, get_samples, get_batches
 from ..utils.evaluation import show_f1_history
 from model_api import ModelAPI
@@ -8,15 +8,12 @@ from model_api import ModelAPI
 
 def get_dataset(argv):
     say('\n\tCorpus Preprocessing...')
-
     train_corpus = load_conll(argv.train_data, data_size=argv.data_size)
     dev_corpus = load_conll(argv.dev_data, data_size=argv.data_size)
     test_corpus = load_conll(argv.test_data, data_size=argv.data_size)
-
     say('\tTrain Sentences: %d' % len(train_corpus))
     say('\tDev   Sentences: %d' % (len(dev_corpus) if dev_corpus else 0))
     say('\tTest  Sentences: %d' % (len(test_corpus) if test_corpus else 0))
-
     return train_corpus, dev_corpus, test_corpus
 
 
@@ -30,7 +27,6 @@ def get_init_emb(argv):
 def create_samples(corpus, vocab_word, vocab_label=None, init_emb=None, cut_label=0):
     if corpus is None:
         return [], None
-
     vocab_label = get_vocab_label(corpus, vocab_label, cut_label)
     x = get_x(corpus, vocab_word)
     y = get_y(corpus, vocab_label)
@@ -125,10 +121,6 @@ def main(argv):
                          (argv.unit, argv.layer, argv.batch, argv.hidden, argv.reg)
                     dump_data(data=model_api.model, fn=fn)
 
-                fn = 'result-dev.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
-                     (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
-                save_predicted_prop(dev_corpus, vocab_label, predicts, fn)
-
         ########
         # Test #
         ########
@@ -138,9 +130,5 @@ def main(argv):
 
             if epoch+1 in f1_history:
                 f1_history[best_epoch+1].append(test_f)
-
-#                output_results(test_corpus, te_prds, label_dict, predicts,
-#                               'Test-result-%s.layer%d.batch%d.hidden%d.opt-%s.reg-%f.txt' % (
-#                               argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg))
 
         show_f1_history(f1_history)

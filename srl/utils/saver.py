@@ -143,6 +143,38 @@ def save_predicted_srl(corpus, vocab_label, predicts, path, file_encoding='utf-8
     f.close()
 
 
+def save_predicted_srl_conll_format(corpus, vocab_label, predicts, path, file_encoding='utf-8'):
+    f = open(path, 'w')
+    k = 0
+    for sent_i in xrange(len(corpus)):
+        sent = corpus[sent_i]
+        prds = [i for i, w in enumerate(sent) if w[4] != '-']
+
+        column = []
+        for i in xrange(len(sent)):
+            column.append([[] for j in xrange(len(prds) + 5)])
+
+        p_i = 4
+        for w_i, w in enumerate(sent):
+            column[w_i][0] = w[0]
+            column[w_i][1] = w[1]
+            column[w_i][2] = '-'
+            column[w_i][3] = '-'
+            column[w_i][4] = w[4]  # base form of prd
+            if w_i in prds:
+                p_i += 1
+                spans = _get_spans(predicts[k], vocab_label)
+                args = _map_span_to_str(sent, spans)
+                for w_j, a_label in enumerate(args):
+                    column[w_j][p_i] = a_label
+                k += 1
+        for c in column:
+            text = "\t".join(c)
+            print >> f, text.encode(file_encoding)
+        print >> f
+    f.close()
+
+
 def output_predicted_srl_to_cmd(corpus, vocab_label, predicts, file_encoding='utf-8'):
     k = 0
     for sent_i in xrange(len(corpus)):

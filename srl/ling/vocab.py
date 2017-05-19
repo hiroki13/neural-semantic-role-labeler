@@ -5,6 +5,7 @@ UNK = u'UNKNOWN'
 UNDER_BAR = u'_'
 SLASH = u'-'
 VERB = u'V'
+BE = [u'be', u'been', u'am', u'is', u'are', u'was', u'were', u'\'m', u'\'s', u'\'re']
 RE_NUM = re.compile(ur'[0-9]')
 
 

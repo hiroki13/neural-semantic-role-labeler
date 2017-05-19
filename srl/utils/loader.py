@@ -4,7 +4,7 @@ import cPickle
 import numpy as np
 import theano
 
-from ..ling.vocab import Vocab, PAD, UNK, UNDER_BAR, VERB, SLASH
+from ..ling.vocab import Vocab, PAD, UNK, UNDER_BAR, VERB, BE, SLASH
 
 
 def load_data(fn):
@@ -67,7 +67,7 @@ def load_pos_tagged_corpus(path, data_size=1000000, file_encoding='utf-8'):
                 tag = es[1].decode(file_encoding)
                 syn = ''
                 ne = ''
-                prd = VERB if tag.startswith(VERB) else SLASH
+                prd = VERB if tag.startswith(VERB) and word not in BE else SLASH
                 prop = []
                 sent.append((word, tag, syn, ne, prd, prop))
             corpus.append(sent)

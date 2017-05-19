@@ -79,3 +79,11 @@ class LSTM(object):
         o_t = sigmoid(xo_t + T.dot(h_tm1, self.W_ho) + c_t * self.W_co)
         h_t = o_t * self.activation(c_t)
         return h_t, c_t
+
+    def forward_all(self, x, h0, c0):
+        xi = T.dot(x, self.W_xi)
+        xf = T.dot(x, self.W_xf)
+        xc = T.dot(x, self.W_xc)
+        xo = T.dot(x, self.W_xo)
+        [h, c], _ = theano.scan(fn=self.forward, sequences=[xi, xf, xc, xo], outputs_info=[h0, c0])
+        return h, c

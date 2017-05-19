@@ -48,8 +48,11 @@ def predict_pos_tagged_corpus(argv):
     if argv.output:
         output_predicted_srl_to_cmd(test_corpus, vocab_label, predicts)
     else:
-        fn = 'result-srl.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
-             (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
+        if argv.out_file:
+            fn = argv.out_file + '.txt'
+        else:
+            fn = 'result-test.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
+                 (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
         save_predicted_srl(test_corpus, vocab_label, predicts, fn)
 
 
@@ -94,8 +97,11 @@ def predict_conll_corpus(argv):
     # Test #
     ########
     test_f, predicts = model_api.predict_and_eval(test_samples, vocab_label_test)
-    fn = 'result-test.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
-         (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
+    if argv.out_file:
+        fn = argv.out_file + '.txt'
+    else:
+        fn = 'result-test.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
+             (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
     save_predicted_prop(test_corpus, vocab_label, predicts, fn)
 
 
