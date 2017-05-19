@@ -3,7 +3,7 @@ import theano.tensor as T
 
 from ..nn.nn import BaseUnit
 from ..nn.rnn import GRU, LSTM
-from ..nn.crf import CRF
+from ..nn.classifier import Softmax, CRF
 from ..nn.nn_utils import L2_sqr, relu
 from ..nn.optimizers import adam
 from ..utils.io_utils import say
@@ -24,7 +24,6 @@ class Model(object):
         self.params = []
 
         n_fin = n_in * 7 + 1
-        batch = T.cast(x.shape[0], dtype='int32')
 
         ################
         # Set networks #
@@ -42,8 +41,8 @@ class Model(object):
         ##########
         # Scores #
         ##########
-        self.p_y = self.get_y_scores(o, y.dimshuffle(1, 0), batch)
-        self.y_hat = self.decode(o, batch)
+        self.p_y = self.get_y_scores(o, y.dimshuffle(1, 0))
+        self.y_hat = self.decode(o)
         self.errors = T.neq(y, self.y_hat)
 
         ############
@@ -63,12 +62,17 @@ class Model(object):
             if self.connect == 'agg':
                 self.layers.append(BaseUnit(n_i=n_h*2, n_h=n_h, activation=relu))
 
-        self.layers.append(CRF(n_i=n_h, n_h=n_y))
+        classifier = self._select_classifier(self.argv.classifier)
+        self.layers.append(classifier(n_i=n_h, n_y=n_y))
         say('Hidden Layer: %d' % (len(self.layers) - 2))
 
     @staticmethod
     def _select_unit(unit_name):
         return GRU if unit_name.lower() == 'gru' else LSTM
+
+    @staticmethod
+    def _select_classifier(classifier_name):
+        return CRF if classifier_name.lower() == 'crf' else Softmax
 
     def set_params(self):
         for l in self.layers:
@@ -122,16 +126,13 @@ class Model(object):
         return x
 
     def output_layer(self, h):
-        crf = self.layers[-1]
-        return crf.dot(h)
+        return self.layers[-1].forward(h)
 
-    def decode(self, h, batch):
-        crf = self.layers[-1]
-        return crf.vitabi(h, batch)
+    def decode(self, h):
+        return self.layers[-1].decode(h)
 
-    def get_y_scores(self, h, y, batch):
-        crf = self.layers[-1]
-        return crf.y_prob(h, y, batch)
+    def get_y_scores(self, h, y):
+        return self.layers[-1].get_y_prob(h, y)
 
 
 

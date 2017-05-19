@@ -117,8 +117,11 @@ def main(argv):
                 f1_history[best_epoch+1] = [best_dev_f]
 
                 if argv.save:
-                    fn = 'model.unit-%s.layer-%d.batch-%d.hidden-%d.reg-%f' %\
-                         (argv.unit, argv.layer, argv.batch, argv.hidden, argv.reg)
+                    if argv.fn:
+                        fn = argv.fn
+                    else:
+                        fn = 'model.unit-%s.layer-%d.batch-%d.hidden-%d.reg-%f' %\
+                             (argv.unit, argv.layer, argv.batch, argv.hidden, argv.reg)
                     dump_data(data=model_api.model, fn=fn)
 
         ########

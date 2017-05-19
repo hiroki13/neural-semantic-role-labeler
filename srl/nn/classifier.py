@@ -1,28 +1,75 @@
 import theano
 import theano.tensor as T
 
-from ..nn.nn_utils import logsumexp, sample_weights
+from ..nn.nn_utils import logsumexp, sample_weights, build_shared_zeros
+
+
+class Softmax(object):
+
+    def __init__(self, n_i, n_y):
+        self.W = theano.shared(sample_weights(n_i, n_y))
+        self.b = build_shared_zeros(n_y)
+        self.params = [self.W, self.b]
+
+    def forward(self, x):
+        """
+        :param x: 1D: n_words, 2D: batch, 3D: dim_h
+        :return: 1D: n_words, 2D: batch, 3D: n_labels; log probability of a label
+        """
+        # 1D: n_words, 2D: batch, 3D: n_labels
+        h = T.dot(x, self.W) + self.b
+        # 1D: n_words * batch, 2D: n_labels
+        h_reshaped = h.reshape((h.shape[0] * h.shape[1], h.shape[2]))
+        return T.log(T.nnet.softmax(h_reshaped).reshape((h.shape[0], h.shape[1], -1)))
+
+    def get_y_prob(self, h, y):
+        """
+        :param h: 1D: n_words, 2D: batch, 3D: n_labels
+        :param y: 1D: n_words, 2D: batch
+        :return: 1D: batch; log probability of the correct sequence
+        """
+        emit_scores = self._get_emit_score(h, y)
+        return T.sum(emit_scores, axis=0)
+
+    @staticmethod
+    def _get_emit_score(h, y):
+        """
+        :param h: 1D: n_words, 2D: batch, 3D: n_labels; label score
+        :param y: 1D: n_words, 2D: batch; label id
+        :return: 1D: n_words, 2D: batch; specified label score
+        """
+        # 1D: n_words * batch, 2D: n_labels
+        h = h.reshape((h.shape[0] * h.shape[1], -1))
+        return h[T.arange(h.shape[0]), y.ravel()].reshape(y.shape)
+
+    @staticmethod
+    def decode(h):
+        """
+        :param h: 1D: n_words, 2D: batch, 3D: n_labels; log probability of a label
+        :return: 1D: batch, 2D: n_words; the highest scoring sequence (label id)
+        """
+        return T.argmax(h, axis=2).dimshuffle(1, 0)
 
 
 class CRF(object):
 
-    def __init__(self, n_i, n_h):
-        self.W = theano.shared(sample_weights(n_i, n_h))
-        self.W_t = theano.shared(sample_weights(n_h, n_h))
-        self.BOS = theano.shared(sample_weights(n_h))
-        self.b = theano.shared(sample_weights(n_h))
+    def __init__(self, n_i, n_y):
+        self.W = theano.shared(sample_weights(n_i, n_y))
+        self.W_t = theano.shared(sample_weights(n_y, n_y))
+        self.BOS = theano.shared(sample_weights(n_y))
+        self.b = build_shared_zeros(n_y)
         self.params = [self.W, self.W_t, self.BOS, self.b]
 
-    def dot(self, x):
+    def forward(self, x):
         return T.dot(x, self.W) + self.b
 
-    def y_prob(self, h, y, batch):
+    def get_y_prob(self, h, y):
         """
         :param h: 1D: n_words, 2D: Batch, 3D: n_y
         :param y: 1D: n_words, 2D: Batch
         :return: gradient of cross entropy: 1D: Batch
         """
-        batch_index = T.arange(batch)
+        batch_index = T.arange(h.shape[1])
         z_score0 = self.BOS + h[0]  # 1D: batch, 2D: n_y
         y_score0 = z_score0[batch_index, y[0]]  # 1D: batch
 
@@ -51,7 +98,7 @@ class CRF(object):
         z_score_t = logsumexp(z_sum, axis=2).reshape(h_t.shape) + h_t  # 1D: Batch, 2D: n_y
         return y_t, y_score_t, z_score_t
 
-    def vitabi(self, h, batch):
+    def decode(self, h):
         score0 = self.BOS + h[0]
         [y_scores, y_nodes], _ = theano.scan(fn=self._vitabi_forward,
                                              sequences=[h[1:]],
@@ -62,7 +109,7 @@ class CRF(object):
         y_hat, _ = theano.scan(fn=self._vitabi_backward,
                                sequences=y_nodes[::-1],
                                outputs_info=y_hat_last,
-                               non_sequences=T.arange(batch))
+                               non_sequences=T.arange(h.shape[1]))
 
         return T.concatenate([y_hat[::-1].dimshuffle(1, 0), y_hat_last.dimshuffle((0, 'x'))], 1)
 

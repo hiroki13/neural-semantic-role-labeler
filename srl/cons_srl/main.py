@@ -1,6 +1,8 @@
+import sys
 import numpy as np
 import theano
 
+sys.setrecursionlimit(100000000)
 theano.config.floatX = 'float32'
 np.random.seed(0)
 
@@ -25,11 +27,12 @@ if __name__ == '__main__':
     parser.add_argument('--window', type=int, default=5,         help='window size for convolution')
     parser.add_argument('--hidden', type=int, default=32,        help='dimension of hidden layer')
     parser.add_argument('--layer',  type=int, default=1,         help='number of layers')
+    parser.add_argument('--classifier',  default='crf', help='crf/softmax')
 
     """ training options """
     parser.add_argument('--cut_label', type=int,  default=0)
     parser.add_argument('--save', type=int, default=0, help='parameters to be saved or not')
-    parser.add_argument('--out_file', type=str, default=None, help='output file name')
+    parser.add_argument('--fn', type=str, default=None, help='output file name')
     parser.add_argument('--output', type=int, default=0, help='output results to cmd line')
     parser.add_argument('--data_size', type=int, default=1000000, help='data size to be used')
     parser.add_argument('--init_emb', default=None, help='Initial embedding to be loaded')

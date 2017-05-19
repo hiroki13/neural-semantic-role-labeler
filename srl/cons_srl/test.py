@@ -48,8 +48,8 @@ def predict_pos_tagged_corpus(argv):
     if argv.output:
         output_predicted_srl_to_cmd(test_corpus, vocab_label, predicts)
     else:
-        if argv.out_file:
-            fn = argv.out_file + '.txt'
+        if argv.fn:
+            fn = argv.fn + '.txt'
         else:
             fn = 'result-test.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
                  (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
@@ -97,8 +97,8 @@ def predict_conll_corpus(argv):
     # Test #
     ########
     test_f, predicts = model_api.predict_and_eval(test_samples, vocab_label_test)
-    if argv.out_file:
-        fn = argv.out_file + '.txt'
+    if argv.fn:
+        fn = argv.fn + '.txt'
     else:
         fn = 'result-test.unit-%s.layer-%d.batch-%d.hidden-%d.opt-%s.reg-%f.txt' %\
              (argv.unit, argv.layer, argv.batch, argv.hidden, argv.opt, argv.reg)
