@@ -45,6 +45,40 @@ def load_conll(path, data_size=1000000, file_encoding='utf-8'):
     return corpus
 
 
+def load_onto_notes(path, data_size=1000000, file_encoding='utf-8'):
+    if path is None:
+        return None
+
+    corpus = []
+    with open(path) as f:
+        sent = []
+        for line in f:
+            es = line.rstrip().split()
+
+            if line.startswith('#'):
+                continue
+
+            if len(es) > 1:
+                word = es[3].decode(file_encoding).lower()
+                tag = es[4].decode(file_encoding)
+                syn = es[5].decode(file_encoding)
+                ne = es[10].decode(file_encoding)
+                prd = es[6].decode(file_encoding) if es[7] != SLASH else SLASH
+                prop = es[11:-1] if len(es) > 12 else []
+                sent.append((word, tag, syn, ne, prd, prop))
+            else:
+                corpus.append(sent)
+                sent = []
+
+            if len(corpus) >= data_size:
+                break
+
+        if sent:
+            corpus.append(sent)
+
+    return corpus
+
+
 def load_pos_tagged_corpus(path, data_size=1000000, file_encoding='utf-8'):
     """
     An example sent: A_DT tropical_JJ storm_NN rapidly_RB ...

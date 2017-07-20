@@ -86,8 +86,7 @@ class ModelAPI(object):
                 print '%d' % (index + 1),
                 sys.stdout.flush()
 
-            batch_x, batch_y = train_samples[b_index]
-            loss, error = self.train_f(batch_x, batch_y)
+            loss, error = self.train_f(*train_samples[b_index])
 
             if math.isnan(loss):
                 say('\n\nNAN: Index: %d\n' % (index + 1))

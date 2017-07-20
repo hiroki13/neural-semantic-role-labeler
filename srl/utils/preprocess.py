@@ -66,7 +66,7 @@ def get_x(corpus, vocab_word):
         for prd_i, prd_index in enumerate(prd_indices):
             prd_id = id_sent[prd_index]
             ctx = get_context(id_sent, prd_index)
-            ctx = [ctx + [w_id, prd_id] for w_id in id_sent]
+            ctx = [[w_id, prd_id] + ctx for w_id in id_sent]
             marks = get_marks(id_sent, prd_index)
 
             assert len(ctx) == len(marks)
@@ -184,7 +184,7 @@ def _get_labels(prd_i, sent):
         arg = w[5][prd_i]
         if arg.startswith('('):
             if arg.endswith(')'):
-                prev = arg[1:-2]
+                prev = arg.split("*")[0][1:]
                 label = 'B-' + prev
                 prev = None
             else:

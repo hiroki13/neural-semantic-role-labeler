@@ -1,5 +1,5 @@
 from ..utils.io_utils import say
-from ..utils.loader import load_conll, load_init_emb
+from ..utils.loader import load_conll, load_onto_notes, load_init_emb
 from ..utils.saver import dump_data
 from ..utils.preprocess import get_x, get_y, concat_x_y, get_vocab_label, get_samples, get_batches
 from ..utils.evaluation import show_f1_history
@@ -8,9 +8,10 @@ from model_api import ModelAPI
 
 def get_dataset(argv):
     say('\n\tCorpus Preprocessing...')
-    train_corpus = load_conll(argv.train_data, data_size=argv.data_size)
-    dev_corpus = load_conll(argv.dev_data, data_size=argv.data_size)
-    test_corpus = load_conll(argv.test_data, data_size=argv.data_size)
+    load = load_conll if argv.data_type == 'conll' else load_onto_notes
+    train_corpus = load(argv.train_data, data_size=argv.data_size)
+    dev_corpus = load(argv.dev_data, data_size=argv.data_size)
+    test_corpus = load(argv.test_data, data_size=argv.data_size)
     say('\tTrain Sentences: %d' % len(train_corpus))
     say('\tDev   Sentences: %d' % (len(dev_corpus) if dev_corpus else 0))
     say('\tTest  Sentences: %d' % (len(test_corpus) if test_corpus else 0))
