@@ -8,6 +8,7 @@ The model gives about F1 = 78.00 on the dev & test set in the following hyperpar
 - word embedding=SENNA, unit=GRU, hidden dimension=128, L2 regularization=0.0005, layers=4
 
 ##### Data
+- CoNLL-2004 Shared Task (http://www.lsi.upc.edu/~srlconll/st04/st04.html)
 - CoNLL-2005 Shared Task (http://www.cs.upc.edu/~srlconll/)
 - Word Embedding: SENNA (http://ronan.collobert.com/senna/)
 
